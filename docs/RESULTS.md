@@ -1,4 +1,31 @@
-# Historical development validation results
+# 门控融合结果
+
+**划分 seed 42；训练 seed 3407；158 条原始验证记录。**
+
+以下比较使用同一组冻结的 UHF/HFCT 分支：等权为 logits 等权融合，门控为分类门控（`gate_ce_logits`）。
+
+## 仅 UHF 污染：−5、0、+5 dB
+
+| SNR | 等权 | 门控 | 差值 |
+| --- | ---: | ---: | ---: |
+| −5 dB | 96.20% | **98.10%** | +1.90 个百分点 |
+| 0 dB | 98.10% | 98.10% | 持平 |
+| +5 dB | 94.94% | **96.84%** | +1.90 个百分点 |
+
+在这三个已测 SNR 点，门控相较等权取得两次提升、一次持平。
+
+## 双通道与仅 HFCT 污染：−15、−10、−5 dB
+
+| SNR | 双通道：门控领先等权 | 仅 HFCT：门控领先等权 |
+| --- | ---: | ---: |
+| −15 dB | +6.96 个百分点 | +10.13 个百分点 |
+| −10 dB | +5.06 个百分点 | +28.48 个百分点 |
+| −5 dB | +12.03 个百分点 | +23.42 个百分点 |
+
+以上展示选定噪声条件下的验证结果。差值按原始正确记录数计算，因此可能与已四舍五入的准确率相减相差 0.01 个百分点。完整 SNR 结果及其他实验放在下方，点击可展开。
+
+<details>
+<summary>完整验证结果与实验说明</summary>
 
 **Split seed 42; training seed 3407; 158 original validation records.** These numbers were supplied in the author's server output. Prediction files and checkpoints are not included, so the public snapshot does not independently re-verify those numerical results.
 
@@ -63,3 +90,5 @@ Earlier project development inspected the 159-record test partition under anothe
 ## Split seed 3407
 
 No completed result has been supplied for the newly requested split. Do not transfer any numbers from the tables above to a split-3407 result table. Refit train-only normalization, regenerate views and noise, and retrain experts and gates first.
+
+</details>
