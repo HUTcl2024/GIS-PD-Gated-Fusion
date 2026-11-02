@@ -8,7 +8,7 @@
 [![Status](https://img.shields.io/badge/status-research%20development-blue)](#-release-status)
 [![Protocol](https://img.shields.io/badge/new%20split%20seed-3407-green)](#-data-and-protocol)
 
-[中文上传说明](docs/UPLOAD_CN.md) · [Complete historical results](docs/RESULTS.md) · [Reproduction workflow](#-training-and-evaluation)
+[Complete historical results](docs/RESULTS.md) · [Reproduction workflow](#-training-and-evaluation)
 
 </div>
 
