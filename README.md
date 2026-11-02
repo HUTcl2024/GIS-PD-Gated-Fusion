@@ -24,7 +24,7 @@ The controlled fusion experiments freeze clean-trained modality experts and trai
 
 - This is a **development code release** associated with a manuscript under revision. It is not a claim of an accepted publication or a final benchmark release.
 - The initial source snapshot comes from the local development workspace. **The exact server files were not verified for that initial upload**, because the configured SSH host was unreachable. [Source provenance](SOURCE_PROVENANCE.json) records the current verification status and file hashes. The [server synchronization script](scripts/sync_from_server.py) can replace these eight source files with their actual server versions.
-- The newly requested **split seed 3407** is supported. Results for that new split have **not been supplied**. The historical numbers below used **split seed 42 and training seed 3407**.
+- The initial development snapshot supports the newly requested **split seed 3407**. A synchronized server snapshot may be older; consult `capabilities` in [source provenance](SOURCE_PROVENANCE.json) before using newer commands. Results for the new split have **not been supplied**. Historical numbers below used **split seed 42 and training seed 3407**.
 - Raw data, derived experimental images, record manifests, checkpoints, logs, manuscripts and reviewer correspondence are **not distributed** in this repository.
 
 Repository Python files use LF line endings. In the provenance record, `source_sha256` refers to original file bytes and `sha256` refers to the LF-normalized repository file; a line-ending-only difference is not a model change.
@@ -90,6 +90,8 @@ For waveform `x`, reference power is `mean((x - median(x))**2)`. Demeaned Gaussi
 The current partition does not enforce held-out defect specimens or voltage conditions. Repartitioning existing records does not create a newly acquired, untouched external test set.
 
 ## 🚀 Training and evaluation
+
+The commands below describe the newer development interface. Server synchronization archives the actual server code without forcing upgrades: if `capabilities.region_resplit`, `explicit_split_seed`, `interval_supervision`, or `parallel_noise_preparation` is false, the corresponding action/flag/objective is unavailable in that snapshot. Do not change or overwrite active experiment scripts merely to satisfy a README example. The optional temporal script is not required for synchronization; any repository copy retained because it is absent on the server is identified separately in provenance.
 
 Run from the repository root. Set paths outside the repository for private data and generated artifacts:
 

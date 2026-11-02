@@ -27,7 +27,7 @@ python -B scripts/sync_from_server.py \
 
 仓库已存在时，先进入该独立仓库并在工作区干净时执行 `git pull --ff-only`，无需再次 clone。
 
-脚本会检查必需函数、自导入错误和工作区状态；仅同步以下八个文件以及它自动生成的版本来源记录：
+脚本会检查核心函数、自导入错误和工作区状态；同步以下代码及版本来源记录，其中 `revision_temporal.py` 是可选文件，服务器没有时不会阻止同步：
 
 ```text
 revision_data.py
@@ -40,7 +40,9 @@ mso44_csv.py
 recovered_models.py
 ```
 
-如果提示缺少 `region_resplit` 或 `interval_gate_loss`，服务器文件版本落后于 README 描述，或曾上传错文件名。先核对相应脚本，不要删除检查代码强行提交。
+新增功能不是同步的前置条件。旧版服务器文件没有 `region_resplit` 或 `interval_gate_loss` 也可以原样同步；脚本在终端和 `SOURCE_PROVENANCE.json` 的 `capabilities` 中记录可用功能。此时 README 中相应新命令可能不适用，但不要为上传代码而覆盖正在使用的实验脚本。可选时序文件不在服务器上时，仓库中的原副本会保留，并明确记录它没有经过服务器核对。
+
+如果报错缺少核心函数，错误会列出具体名称；这可能仍是上传错文件的问题。不能关闭所有检查，因为之前确实发生过同名脚本内容混淆、自导入的情况。
 
 如果提示工作区有未提交改动，先用 `git status` 检查并处理自己的修改；脚本不会替你丢弃文件。若 push 提示认证失败，使用服务器已有的 GitHub 登录或 SSH 配置；也可以在已安装 GitHub CLI 的环境运行 `gh auth login`。不要将密码、令牌或私钥发到聊天中。
 
