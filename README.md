@@ -18,7 +18,7 @@ This repository provides research code for partial-discharge defect classificati
 
 The controlled fusion experiments freeze clean-trained modality experts and train only the gate using perturbations of **training waveforms**. Validation compares clean data and fixed AWGN scenarios with both channels, only UHF, or only HFCT corrupted. Equal-logit and equal-probability fusion are separate baselines. The code includes classification, reliability, and exploratory interval-supervised gate objectives.
 
-![Pipeline overview](assets/overview.svg)
+![Pipeline overview](assets/overview.png)
 
 
 ## 🛠️ Installation
