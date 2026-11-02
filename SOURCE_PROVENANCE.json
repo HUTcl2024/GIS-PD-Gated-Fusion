@@ -1,13 +1,14 @@
 {
-  "snapshot": "server_code_copy",
-  "server_verified": true,
-  "verification_scope": "Only files listed under files were read from the server; no experiment results were verified",
+  "snapshot": "server_snapshot_with_local_development_update",
+  "server_verified": false,
+  "verification_scope": "Original server snapshot is retained for provenance. The feature_concat extension was locally validated and published; its execution on the server is pending.",
   "capabilities": {
     "region_resplit": false,
     "explicit_split_seed": false,
     "interval_supervision": true,
     "parallel_noise_preparation": true,
-    "temporal_script": false
+    "temporal_script": false,
+    "feature_concat": true
   },
   "optional_files_not_copied": [
     "revision_temporal.py"
@@ -32,9 +33,11 @@
       "bytes": 69221
     },
     "revision_reliability.py": {
-      "sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
-      "source_sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
-      "bytes": 42253
+      "sha256": "124313ab8f12bf8b46b7167e82c8edef1215f466463098a9d6583627802a654a",
+      "bytes": 43115,
+      "base_server_sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
+      "server_verified": false,
+      "change": "Added feature_concat only; original gate defaults retained. Forward/backward, diagnostics, checkpoint round-trip and original gate output regression checks passed locally."
     },
     "generate_prpd_wfm.py": {
       "sha256": "65f6709f2cb017797cfd83c3aa3f6882b9159d4e936efbb1bf455827c052ede5",
