@@ -1,12 +1,30 @@
 {
-  "snapshot": "local_development_copy",
-  "server_verified": false,
-  "snapshot_date": "2026-11-02",
+  "snapshot": "server_code_copy",
+  "server_verified": true,
+  "verification_scope": "Only files listed under files were read from the server; no experiment results were verified",
+  "capabilities": {
+    "region_resplit": false,
+    "explicit_split_seed": false,
+    "interval_supervision": true,
+    "parallel_noise_preparation": true,
+    "temporal_script": false
+  },
+  "optional_files_not_copied": [
+    "revision_temporal.py"
+  ],
+  "preserved_local_optional": {
+    "revision_temporal.py": {
+      "sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
+      "reason": "Kept repository version; absent on server and not server-verified"
+    }
+  },
+  "captured_at_utc": "2026-11-02T01:10:05.130519+00:00",
+  "line_endings": "Repository code uses LF; source_sha256 hashes original bytes, sha256 hashes LF-normalized repository bytes",
   "files": {
     "revision_data.py": {
-      "sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
-      "source_sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
-      "bytes": 55919
+      "sha256": "6fa885f4609fbe74653c8d9e2395f24ecef4d7a5a01cb4995ffa325dc107da5d",
+      "source_sha256": "6fa885f4609fbe74653c8d9e2395f24ecef4d7a5a01cb4995ffa325dc107da5d",
+      "bytes": 52226
     },
     "revision_train.py": {
       "sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
@@ -17,11 +35,6 @@
       "sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
       "source_sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
       "bytes": 42253
-    },
-    "revision_temporal.py": {
-      "sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
-      "source_sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
-      "bytes": 16986
     },
     "generate_prpd_wfm.py": {
       "sha256": "65f6709f2cb017797cfd83c3aa3f6882b9159d4e936efbb1bf455827c052ede5",
@@ -44,6 +57,5 @@
       "bytes": 3061
     }
   },
-  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied",
-  "line_endings": "Repository code uses LF; source_sha256 hashes original bytes, sha256 hashes LF-normalized repository bytes"
+  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied"
 }
