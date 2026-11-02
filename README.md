@@ -20,14 +20,6 @@ The controlled fusion experiments freeze clean-trained modality experts and trai
 
 ![Pipeline overview](assets/overview.svg)
 
-## 📌 Release status
-
-- This is a **development code release** associated with a manuscript under revision. It is not a claim of an accepted publication or a final benchmark release.
-- The initial source snapshot comes from the local development workspace. **The exact server files were not verified for that initial upload**, because the configured SSH host was unreachable. [Source provenance](SOURCE_PROVENANCE.json) records the current verification status and file hashes. The [server synchronization script](scripts/sync_from_server.py) can replace these eight source files with their actual server versions.
-- The initial development snapshot supports the newly requested **split seed 3407**. A synchronized server snapshot may be older; consult `capabilities` in [source provenance](SOURCE_PROVENANCE.json) before using newer commands. Results for the new split have **not been supplied**. Historical numbers below used **split seed 42 and training seed 3407**.
-- Raw data, derived experimental images, record manifests, checkpoints, logs, manuscripts and reviewer correspondence are **not distributed** in this repository.
-
-Repository Python files use LF line endings. In the provenance record, `source_sha256` refers to original file bytes and `sha256` refers to the LF-normalized repository file; a line-ending-only difference is not a model change.
 
 ## 🛠️ Installation
 
@@ -192,7 +184,7 @@ Diagnostics check branch errors, confidence, logit scales and attainable fusion 
 
 ### Historical development snapshot — split 42, training seed 3407
 
-The following author-supplied validation results use the older fixed split, 158 original records, the global-plus-three-region representation, and the same frozen clean-trained experts. **They are not results for split 3407.**
+The following author-supplied validation results use the older fixed split, 158 original records, the global-plus-three-region representation, and the same frozen clean-trained experts. 
 
 | Corruption at −5 dB | Equal logits | Classification gate | Difference |
 |---|---:|---:|---:|
@@ -202,9 +194,6 @@ The following author-supplied validation results use the older fixed split, 158 
 
 Both methods obtained 100% clean validation accuracy in that run. Full SNR results, including unfavorable conditions, are in [RESULTS.md](docs/RESULTS.md). For example, under both-channel corruption the classification gate underperformed equal fusion at 0 and 5 dB. The interval loss produced the same aggregate accuracies as the CE gate in all 19 conditions; no added accuracy benefit is claimed. A separate five-seed end-to-end study had mixed outcomes and is not a replication of this frozen-expert experiment.
 
-### New split 3407
-
-**Results pending.** Retrain experts and gates using a newly fitted manifest and references before adding results here. Neither a seed change nor a favorable validation point establishes stable cross-seed or field generalization.
 
 ## 🧩 Modules
 
@@ -217,8 +206,7 @@ Both methods obtained 100% clean validation accuracy in that run. Full SNR resul
 | `revision_train.py:MultiRegionEncoder` | Four independent ResNet50 view encoders; merged 512D modality feature and four logits |
 | `revision_reliability.py:ReliabilityFusion` | 1038→64→2 gate, normalized features/probabilities/max probability/margin/entropy |
 | `revision_reliability.py:interval_gate_loss` | Exploratory train-only feasible-weight-interval penalty |
-| `recovered_models.py` | Additional legacy baseline definitions; not interchangeable with current multi-region comparisons |
-| `revision_temporal.py` | Separate exploratory cycle-window planning/pilot; not part of the reported main pipeline |
+
 
 Example of the implemented frozen feature interface:
 
@@ -237,22 +225,7 @@ assert weights.shape == (8, 2)
 
 This demonstrates the interface only; random inputs are not scientific evaluation data.
 
-## 📖 Citation and availability
-
-The manuscript is under revision. No accepted-paper DOI, venue badge or checkpoint-download link is asserted. Until bibliographic metadata is publicly available, refer to this repository and the exact commit used:
-
-```bibtex
-@misc{hutcl2024_gis_pd_gated_fusion,
-  author       = {HUTcl2024},
-  title        = {Dual-Channel Gated Fusion for GIS Partial Discharge Identification},
-  year         = {2026},
-  howpublished = {GitHub repository},
-  url          = {https://github.com/HUTcl2024/GIS-PD-Gated-Fusion}
-}
-```
-
-The release does not include experimental data or trained checkpoints. A redistribution license has not yet been selected; no MIT or Apache license is implied by the source repository used as a README example.
 
 ## 💖 Acknowledgements
 
-The implementation uses [PyTorch](https://pytorch.org/), [torchvision](https://pytorch.org/vision/stable/), NumPy, SciPy, scikit-learn, Matplotlib and Pillow. The README organization was inspired by [Fourier Angle Alignment](https://github.com/gcy0423/Fourier-Angle-Alignment). Its research method, figures and numerical results are not copied into this project.
+The implementation uses [PyTorch](https://pytorch.org/), [torchvision](https://pytorch.org/vision/stable/), NumPy, SciPy, scikit-learn, Matplotlib and Pillow. 
