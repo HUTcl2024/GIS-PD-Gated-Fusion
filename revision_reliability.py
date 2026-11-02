@@ -28,7 +28,7 @@ from revision_train import Paired, build_model, evaluate
 
 SCENARIOS=['clean']+[f'val_awgn_{target}_snr{snr}dB'
     for target in ['both','uhf','hfct'] for snr in [-15,-10,-5,0,5,10]]
-GATE_MODES=['gate_ce','gate_quality','gate_ce_logits','gate_quality_logits','gate_interval_logits']
+GATE_MODES=['gate_ce','gate_quality','gate_ce_logits','gate_quality_logits','gate_interval_logits','feature_concat']
 
 
 class FrozenFeatures(Dataset):
@@ -42,6 +42,9 @@ class FrozenFeatures(Dataset):
 class ReliabilityFusion(nn.Module):
     def __init__(self,dim,classes,mode):
         super().__init__(); self.dim,self.classes,self.mode=dim,classes,mode
+        if mode=='feature_concat':
+            self.classifier=nn.Linear(2*dim,classes)
+            return
         self.gate=nn.Sequential(nn.Linear(2*dim+2*classes+6,64),nn.ReLU(),nn.Linear(64,2))
         nn.init.zeros_(self.gate[-1].weight); nn.init.zeros_(self.gate[-1].bias)
 
@@ -59,6 +62,9 @@ class ReliabilityFusion(nn.Module):
     def forward(self,u,h,return_branches=False):
         fu,lu=u[:,:self.dim],u[:,self.dim:]
         fh,lh=h[:,:self.dim],h[:,self.dim:]
+        if self.mode=='feature_concat':
+            logits=self.classifier(torch.cat([fu,fh],dim=1))
+            return (logits,None,lu,lh) if return_branches else (logits,None)
         pu,ph=lu.softmax(1),lh.softmax(1)
         if self.mode in ['equal_logits','equal_probs']:
             w=torch.full((len(u),2),.5,device=u.device,dtype=u.dtype)
@@ -532,6 +538,8 @@ def main(args):
         return
     if args.raw_data is None or args.source is None: raise ValueError('Training requires --raw-data and --source')
     if not args.gate_modes or len(set(args.gate_modes))!=len(args.gate_modes): raise ValueError('Unique gate modes required')
+    if 'feature_concat' in args.gate_modes and args.gate_modes!=['feature_concat']:
+        raise ValueError('Run feature_concat alone; preserve the original gate initialization and existing runs')
     if args.epochs<1 or args.image_batch<1: raise ValueError('Positive epochs and image-batch required')
     if args.batch_size<8 or args.batch_size%2: raise ValueError('Use an even gate batch size >=8')
     if not args.raw_data.is_dir(): raise FileNotFoundError(args.raw_data)
@@ -554,8 +562,10 @@ def main(args):
     dump(args.output/'protocol.json',dict(arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},
         manifest_sha256=hashlib.sha256(raw).hexdigest(),evaluation_split='val',source_protocol=source,
         scenarios=SCENARIOS,selection='mean macro F1 across these 19 FIXED validation conditions; first maximum wins',
-        gate='normalized branch features + probabilities + max probability/entropy/margin -> 64 -> 2 softmax; identity initialization',
-        fusion={mode:('weighted raw branch logits' if mode.endswith('_logits') else 'weighted branch softmax probabilities') for mode in args.gate_modes},
+        gate=('not used: raw modality features concatenated into a linear classification head' if args.gate_modes==['feature_concat'] else
+            'normalized branch features + probabilities + max probability/entropy/margin -> 64 -> 2 softmax; identity initialization'),
+        fusion={mode:('concatenate raw frozen modality features -> Linear(2*dim, classes)' if mode=='feature_concat' else
+            'weighted raw branch logits' if mode.endswith('_logits') else 'weighted branch softmax probabilities') for mode in args.gate_modes},
         baselines='equal_logits and equal_probs use identical frozen experts',
         loss='CE variants: classification CE; quality variants: CE + reliability KL, coefficient 1; gate_interval_logits: CE + mean L1 distance to feasible training-label weight interval, coefficient 1',
         interval_supervision=(dict(target='detached raw-logit class inequalities on train batches only; UHF weight in [0,1]',
@@ -563,7 +573,7 @@ def main(args):
             infeasible='zero interval penalty; classification CE retained; zero-width tie-only intervals excluded',
             inference='original gate forward with raw-logit fusion; no labels or interval computation')
             if 'gate_interval_logits' in args.gate_modes else None),
-        training='frozen clean-trained region_equal experts; fresh train waveform AWGN uniform [-15,10] dB; only gate optimized',
+        training='frozen clean-trained region_equal experts; fresh train waveform AWGN uniform [-15,10] dB; only fusion head optimized',
         batch='half clean, half noisy; three noisy targets balanced 5/5/6 at batch32, rotated; sampling with replacement',
         preprocessing_execution='optional bounded spawn CPU workers; parent-planned RNG draws, ordered results, unchanged per-record GPU inference',
         source_code_sha256={p:hashlib.sha256(Path(__file__).with_name(p).read_bytes()).hexdigest()
@@ -607,6 +617,8 @@ def main(args):
                         penalty,stats=interval_gate_loss(w,lu,lh,y)
                         loss=F.cross_entropy(logits,y)+penalty
                         for key,value in stats.items(): interval_stats[mode][key]+=value
+                    elif mode=='feature_concat':
+                        loss=F.cross_entropy(logits,y)
                     else:
                         ce,kl=gate_losses(logits,w,lu,lh,y)
                         loss=ce+(kl if mode.startswith('gate_quality') else 0.)
