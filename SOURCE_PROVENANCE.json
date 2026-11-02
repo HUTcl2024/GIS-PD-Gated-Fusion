@@ -1,0 +1,49 @@
+{
+  "snapshot": "local_development_copy",
+  "server_verified": false,
+  "snapshot_date": "2026-11-02",
+  "files": {
+    "revision_data.py": {
+      "sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
+      "source_sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
+      "bytes": 55919
+    },
+    "revision_train.py": {
+      "sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
+      "source_sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
+      "bytes": 69221
+    },
+    "revision_reliability.py": {
+      "sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
+      "source_sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
+      "bytes": 42253
+    },
+    "revision_temporal.py": {
+      "sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
+      "source_sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
+      "bytes": 16986
+    },
+    "generate_prpd_wfm.py": {
+      "sha256": "65f6709f2cb017797cfd83c3aa3f6882b9159d4e936efbb1bf455827c052ede5",
+      "source_sha256": "d535d170ca1193d1272bb57e04d8c196d483d107fa2f47777a7f6ee8ed69e9c7",
+      "bytes": 11098
+    },
+    "mso44_wfm.py": {
+      "sha256": "766a3c8fc2778cb26451db40ca871347c4c415d42d328f9e2e1d53a07b0efa22",
+      "source_sha256": "766a3c8fc2778cb26451db40ca871347c4c415d42d328f9e2e1d53a07b0efa22",
+      "bytes": 5004
+    },
+    "mso44_csv.py": {
+      "sha256": "acd885f6b6e7c845c9b7ebb3c64142ffda157eba0cae509e1ba9715f488beb62",
+      "source_sha256": "acd885f6b6e7c845c9b7ebb3c64142ffda157eba0cae509e1ba9715f488beb62",
+      "bytes": 4243
+    },
+    "recovered_models.py": {
+      "sha256": "3cf0c7aff00cfd864d163c72702e0cc9581d00e4f6d326877e6ff501c087cace",
+      "source_sha256": "3cf0c7aff00cfd864d163c72702e0cc9581d00e4f6d326877e6ff501c087cace",
+      "bytes": 3061
+    }
+  },
+  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied",
+  "line_endings": "Repository code uses LF; source_sha256 hashes original bytes, sha256 hashes LF-normalized repository bytes"
+}

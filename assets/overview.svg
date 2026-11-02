@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+<title id="title">Dual-channel global and regional PRPD fusion pipeline</title>
+<desc id="desc">UHF and HFCT waveforms form a global PRPD view and three local regions per channel. Frozen modality experts produce 512-dimensional features and four logits. A 1038-to-64-to-2 gate weights the logits. Only training captures receive fresh waveform perturbations; validation noise is fixed.</desc>
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#52647b"/></marker></defs>
+<rect width="1200" height="650" rx="18" fill="#fff"/>
+<g font-family="Arial, sans-serif" fill="#162b46">
+<text x="600" y="43" text-anchor="middle" font-size="25" font-weight="bold">Paired UHF and HFCT PRPD Classification</text>
+<text x="600" y="72" text-anchor="middle" font-size="16">One original acquisition record · global view plus three 120° regions per modality</text>
+<rect x="25" y="125" width="175" height="110" rx="12" fill="#e8f1fb" stroke="#6c94c3"/>
+<text x="112" y="158" text-anchor="middle" font-size="19" font-weight="bold">UHF waveform</text><text x="112" y="186" text-anchor="middle" font-size="15">CH1</text><text x="112" y="212" text-anchor="middle" font-size="14">pulse detection + PRPD</text>
+<rect x="25" y="305" width="175" height="110" rx="12" fill="#e9f6f0" stroke="#68a68c"/>
+<text x="112" y="338" text-anchor="middle" font-size="19" font-weight="bold">HFCT waveform</text><text x="112" y="366" text-anchor="middle" font-size="15">CH3</text><text x="112" y="392" text-anchor="middle" font-size="14">pulse detection + PRPD</text>
+<rect x="235" y="125" width="180" height="110" rx="12" fill="#e8f1fb" stroke="#6c94c3"/>
+<text x="325" y="155" text-anchor="middle" font-size="17" font-weight="bold">4 phase views</text><text x="325" y="184" text-anchor="middle" font-size="14">global · 0–120°</text><text x="325" y="210" text-anchor="middle" font-size="14">120–240° · 240–360°</text>
+<rect x="235" y="305" width="180" height="110" rx="12" fill="#e9f6f0" stroke="#68a68c"/>
+<text x="325" y="335" text-anchor="middle" font-size="17" font-weight="bold">4 phase views</text><text x="325" y="364" text-anchor="middle" font-size="14">global · 0–120°</text><text x="325" y="390" text-anchor="middle" font-size="14">120–240° · 240–360°</text>
+<rect x="450" y="125" width="215" height="110" rx="12" fill="#e8f1fb" stroke="#6c94c3"/>
+<text x="557" y="155" text-anchor="middle" font-size="17" font-weight="bold">Frozen UHF expert</text><text x="557" y="183" text-anchor="middle" font-size="14">4 independent ResNet50s</text><text x="557" y="211" text-anchor="middle" font-size="14">512D feature + 4 logits</text>
+<rect x="450" y="305" width="215" height="110" rx="12" fill="#e9f6f0" stroke="#68a68c"/>
+<text x="557" y="335" text-anchor="middle" font-size="17" font-weight="bold">Frozen HFCT expert</text><text x="557" y="363" text-anchor="middle" font-size="14">4 independent ResNet50s</text><text x="557" y="391" text-anchor="middle" font-size="14">512D feature + 4 logits</text>
+<rect x="725" y="198" width="235" height="145" rx="12" fill="#fff2dd" stroke="#ca9b4c"/>
+<text x="842" y="228" text-anchor="middle" font-size="19" font-weight="bold">Trainable logit gate</text><text x="842" y="257" text-anchor="middle" font-size="14">features + probabilities + statistics</text><text x="842" y="285" text-anchor="middle" font-size="15">MLP 1038 → 64 → 2</text><text x="842" y="314" text-anchor="middle" font-size="15">softmax weights: wU + wH = 1</text>
+<rect x="1005" y="215" width="170" height="110" rx="12" fill="#edf0f8" stroke="#8d92b2"/>
+<text x="1090" y="247" text-anchor="middle" font-size="18" font-weight="bold">Weighted logits</text><text x="1090" y="275" text-anchor="middle" font-size="14">wU zU + wH zH</text><text x="1090" y="303" text-anchor="middle" font-size="14">4-class prediction</text>
+<g fill="none" stroke="#52647b" stroke-width="2" marker-end="url(#arrow)"><path d="M200 180 H233"/><path d="M415 180 H448"/><path d="M200 360 H233"/><path d="M415 360 H448"/><path d="M665 180 H695 V238 H723"/><path d="M665 360 H695 V300 H723"/><path d="M960 270 H1003"/></g>
+<rect x="25" y="470" width="1150" height="140" rx="12" fill="#f5f7fa" stroke="#ccd4df"/>
+<text x="49" y="502" font-size="16" font-weight="bold">Waveform perturbations and evaluation</text>
+<text x="49" y="532" font-size="15">Training: fresh AWGN on selected training parents; SNR sampled from [−15, 10] dB; experts stay frozen.</text>
+<text x="49" y="559" font-size="15">Validation: clean + 6 fixed SNRs × 3 directions (both / UHF only / HFCT only); original-record metrics.</text>
+<text x="49" y="586" font-size="15">CH2 phase reference stays clean. Amplitude references are fitted only on clean training records.</text>
+</g></svg>
