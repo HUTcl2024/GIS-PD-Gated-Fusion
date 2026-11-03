@@ -1,10 +1,10 @@
 {
-  "snapshot": "server_snapshot_with_local_development_update",
+  "snapshot": "server_data_update_and_paper_reproduction_entry",
   "server_verified": false,
-  "verification_scope": "Original server snapshot is retained for provenance. The feature_concat extension was locally validated and published; its execution on the server is pending.",
+  "verification_scope": "The author reported matching server SHA256 for revision_data.py and revision_train.py. This update packages the completed terminal test evaluation as a script and separates the paper tile protocol from historical region development. The standalone script passed synthetic end-to-end aggregation and preflight checks, but has not been rerun on private server inputs.",
   "capabilities": {
-    "region_resplit": false,
-    "explicit_split_seed": false,
+    "region_resplit": true,
+    "explicit_split_seed": true,
     "interval_supervision": true,
     "parallel_noise_preparation": true,
     "temporal_script": false,
@@ -23,9 +23,10 @@
   "line_endings": "Repository code uses LF; source_sha256 hashes original bytes, sha256 hashes LF-normalized repository bytes",
   "files": {
     "revision_data.py": {
-      "sha256": "6fa885f4609fbe74653c8d9e2395f24ecef4d7a5a01cb4995ffa325dc107da5d",
-      "source_sha256": "6fa885f4609fbe74653c8d9e2395f24ecef4d7a5a01cb4995ffa325dc107da5d",
-      "bytes": 52226
+      "sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
+      "source_sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
+      "bytes": 55919,
+      "verification": "Matches author-supplied server SHA256"
     },
     "revision_train.py": {
       "sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
@@ -60,5 +61,22 @@
       "bytes": 3061
     }
   },
-  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied"
+  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied",
+  "paper_evaluation_entry": {
+    "path": "scripts/evaluate_tile_test.py",
+    "sha256": "2c9aa9b9229d09f43361cb7cdb18bb960c02213076683b008bb8915c432a165d",
+    "training_changed": false,
+    "private_data_execution_verified": false,
+    "validation": "60 synthetic evaluations with actual record aggregation; mismatched split/count and output overwrite rejected; source fixtures unchanged"
+  },
+  "paper_protocol": {
+    "split_seed": 42,
+    "training_seed": 3407,
+    "representation": "legacy_phase_tiles_30deg",
+    "checkpoint_selection": "tile validation macro F1",
+    "evaluation_unit": "original_record",
+    "test_records": 159,
+    "reported_test_rows": 60,
+    "result_source": "Author-supplied completed terminal output; private predictions not included"
+  }
 }
