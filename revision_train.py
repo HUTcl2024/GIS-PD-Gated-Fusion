@@ -22,8 +22,8 @@ from revision_data import ROOT, dump, image_paths, region_paths
 
 
 METHODS=['uhf','hfct','concat','equal','gfm','gfm_no_conf',
-         'recovered_concat','recovered_equal','swin_uhf','swin_hfct','gfm_attn','region_equal','region_gfm']
-AUX_METHODS={'concat','equal','gfm','gfm_no_conf','gfm_attn','region_equal','region_gfm'}
+         'recovered_concat','recovered_equal','swin_uhf','swin_hfct','gfm_attn','region_equal','region_gfm','cnn_gfm']
+AUX_METHODS={'concat','equal','gfm','gfm_no_conf','gfm_attn','region_equal','region_gfm','cnn_gfm'}
 
 
 def build_model(method,backbone,dim,classes,pretrained):
@@ -47,6 +47,25 @@ class Encoder(nn.Module):
     def forward(self,x):
         f=self.backbone(x)
         return self.feat_proj(f),self.head(f)
+
+
+class CNNEncoder(nn.Module):
+    """Three-block RGB CNN; retains the original GFM's feature/head interfaces."""
+    def __init__(self, backbone, dim, classes, pretrained):
+        super().__init__()
+        layers = []
+        previous = 3
+        for width in [32, 64, 128]:
+            layers += [nn.Conv2d(previous, width, 3, padding=1, bias=False),
+                       nn.BatchNorm2d(width), nn.ReLU(), nn.MaxPool2d(2)]
+            previous = width
+        self.backbone = nn.Sequential(*layers, nn.AdaptiveAvgPool2d(1), nn.Flatten())
+        self.feat_proj = nn.Sequential(nn.Linear(128, dim), nn.ReLU())
+        self.head = nn.Sequential(nn.Linear(128, dim), nn.ReLU(), nn.Dropout(.5), nn.Linear(dim, classes))
+
+    def forward(self, x):
+        feature = self.backbone(x)
+        return self.feat_proj(feature), self.head(feature)
 
 
 class MultiRegionEncoder(nn.Module):
@@ -83,7 +102,7 @@ class FusionNet(nn.Module):
         super().__init__()
         self.method=method
         # Both encoders initialized in the same order across all methods/seeds.
-        encoder=MultiRegionEncoder if method in ['region_equal','region_gfm'] else Encoder
+        encoder=CNNEncoder if method=='cnn_gfm' else MultiRegionEncoder if method in ['region_equal','region_gfm'] else Encoder
         self.uhf=encoder(backbone,dim,classes,pretrained)
         self.hfct=encoder(backbone,dim,classes,pretrained)
         self.gate=nn.Sequential(nn.Linear(dim*2+2,128),nn.ReLU(),nn.Linear(128,2))
@@ -870,7 +889,8 @@ def main(args):
     args.output.mkdir(parents=True,exist_ok=False)
     dump(args.output/'protocol.json',dict(arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()},
         manifest_sha256=hashlib.sha256(raw).hexdigest(),classes=manifest['classes'],backbone=backbone,feat_dim=dim,
-        model_backbones={method:'swin_t' if method.startswith('swin_') else backbone for method in args.methods},
+        model_backbones={method:'simple_cnn' if method=='cnn_gfm' else 'swin_t' if method.startswith('swin_') else backbone for method in args.methods},
+        initialization={method:('random CNN; no pretrained weights' if method=='cnn_gfm' else 'random' if args.no_pretrained else 'ImageNet') for method in args.methods},
         gate_feature_attention={method:('independent modality MLPs dim->dim/16->dim, ReLU, 2*sigmoid feature scaling; identity init; gate inputs only; branch logits unchanged'
             if method=='gfm_attn' else 'none') for method in args.methods},
         source_code_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
@@ -944,7 +964,7 @@ def main(args):
                     if g: detail+=f' sat(U/H)={g["uhf_saturated_fraction"]:.3f}/{g["hfct_saturated_fraction"]:.3f}'
                 print(f'{method} seed={seed} epoch={epoch} val_f1={val["macro_f1"]:.4f}{detail} elapsed={time.perf_counter()-start:.1f}s',flush=True)
             model.load_state_dict(best_state)
-            torch.save(dict(state_dict=best_state,method=method,backbone='swin_t' if method.startswith('swin_') else backbone,feat_dim=dim,
+            torch.save(dict(state_dict=best_state,method=method,backbone='simple_cnn' if method=='cnn_gfm' else 'swin_t' if method.startswith('swin_') else backbone,feat_dim=dim,
                 classes=manifest['classes'],seed=seed,best_epoch=best_epoch,
                 aux_weight=args.aux_weight,validation_only=args.validation_only,selection_unit=args.selection_unit),folder/'best.pt')
             dump(folder/'history.json',history)
