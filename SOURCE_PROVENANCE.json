@@ -56,15 +56,16 @@
       "bytes": 4243
     },
     "recovered_models.py": {
-      "sha256": "3cf0c7aff00cfd864d163c72702e0cc9581d00e4f6d326877e6ff501c087cace",
+      "sha256": "ede44ccb2a45bcab30b6be9849d76b55a02f05a08deab11bdab34fb075a5c8d0",
       "source_sha256": "3cf0c7aff00cfd864d163c72702e0cc9581d00e4f6d326877e6ff501c087cace",
-      "bytes": 3061
+      "bytes": 3052,
+      "change": "Documentation link corrected; executable model definitions unchanged"
     }
   },
   "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied",
   "paper_evaluation_entry": {
     "path": "scripts/evaluate_tile_test.py",
-    "sha256": "2c9aa9b9229d09f43361cb7cdb18bb960c02213076683b008bb8915c432a165d",
+    "sha256": "ed95c4f49aa2ca9e8087f02581f7ef55264c1b387c969417a053579e2f641757",
     "training_changed": false,
     "private_data_execution_verified": false,
     "validation": "60 synthetic evaluations with actual record aggregation; mismatched split/count and output overwrite rejected; source fixtures unchanged"
@@ -78,5 +79,10 @@
     "test_records": 159,
     "reported_test_rows": 60,
     "result_source": "Author-supplied completed terminal output; private predictions not included"
+  },
+  "baseline_source_audit": {
+    "document": "docs/BASELINES.md",
+    "server_source_hashes_confirmed_by_author": true,
+    "scope": "Five original source identities; optional baseline test interface added; no new training or accuracy results"
   }
 }

@@ -117,6 +117,8 @@ Accuracy (%), transcribed from the author's completed server output. This table 
 
 SVM and a standalone CNN baseline are not implemented in these published experiment scripts. Do not describe their settings as verified by this code.
 
+The author-verified original Swin-T, ResNet50, concatenation and equal-fusion sources are documented in [the baseline audit](docs/BASELINES.md). Optional methods `swin_uhf`, `swin_hfct`, `recovered_concat` and `recovered_equal` already share the training entry point and are now accepted by the test evaluator when matching checkpoints exist. This interface update does not add completed experiments or change the default six-model paper protocol.
+
 ## Earlier development workflows
 
 The following historical documentation is retained for traceability. It describes **different** representations, training objectives and partitions; it must not be used to interpret the paper test table above.

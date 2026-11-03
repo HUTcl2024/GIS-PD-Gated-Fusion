@@ -3,7 +3,7 @@
 Only model definitions are reused. Splits, preprocessing, selection and metrics
 come from revision_train.py. Pretraining is explicit; download failure raises
 instead of silently switching Swin-T to random initialization.
-Exact original definitions and SHA256 provenance: recovered_code/audit.json.
+Original source identities and adaptation scope: docs/BASELINES.md.
 """
 import torch
 from torch import nn

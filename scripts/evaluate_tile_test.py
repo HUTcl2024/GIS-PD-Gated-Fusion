@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 METHODS = ['uhf', 'hfct', 'concat', 'equal', 'gfm', 'gfm_no_conf']
+OPTIONAL_METHODS = ['swin_uhf', 'swin_hfct', 'recovered_concat', 'recovered_equal']
 
 
 def read(path):
@@ -101,7 +102,7 @@ def main(args):
         selection='Unchanged source checkpoints; no retraining or test-driven selection',
         pooling='Arithmetic mean of 12 tile softmax probability vectors per parent',
         source_code_sha256={name: digest(ROOT/name) for name in
-            ['scripts/evaluate_tile_test.py', 'revision_train.py', 'revision_data.py']},
+            ['scripts/evaluate_tile_test.py', 'revision_train.py', 'revision_data.py', 'recovered_models.py']},
         torch=torch.__version__, device=str(device), batch_size=args.batch_size,
         warning='Same record partition was inspected in earlier development experiments; not an external untouched test set'))
     rows = []
@@ -145,7 +146,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=3407)
     parser.add_argument('--expected-split-seed', type=int, default=42)
     parser.add_argument('--expected-records', type=int, default=159)
-    parser.add_argument('--methods', nargs='+', choices=METHODS, default=METHODS)
+    parser.add_argument('--methods', nargs='+', choices=METHODS + OPTIONAL_METHODS, default=METHODS,
+                        help='Default: six paper methods. Optional recovered baselines require matching saved checkpoints.')
     parser.add_argument('--snrs', nargs='+', type=int, default=[-15, -10, -5])
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--threads', type=int, default=4)
