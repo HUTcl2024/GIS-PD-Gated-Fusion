@@ -23,7 +23,7 @@ plt.rcParams.update({'font.family': 'sans-serif',
                      'svg.fonttype': 'none', 'pdf.fonttype': 42})
 from PIL import Image
 from revision_data import read_parent_record
-from generate_prpd_wfm import legacy_compute_phase_from_ch2
+from generate_prpd_wfm import legacy_compute_phase_from_ch2, legacy_movmean
 
 
 def density(phase, signal):
@@ -71,6 +71,63 @@ def draw(results, record_id, output):
     plt.close(fig)
 
 
+def phase_audit(ch2, fs, crossings, record_id, output):
+    """Inspect the existing zero-crossing estimator, without fixing/excluding cycles."""
+    intervals = np.diff(crossings)
+    good = (intervals >= .015) & (intervals <= .025)
+    stats = dict(record_id=record_id, samples=len(ch2), sample_rate_hz=fs,
+        duration_s=len(ch2)/fs, rising_zero_crossings=len(crossings),
+        interval_count=len(intervals), intervals_15_to_25_ms=int(good.sum()),
+        intervals_below_15_ms=int((intervals < .015).sum()),
+        intervals_above_25_ms=int((intervals > .025).sum()),
+        interval_ms_quantiles={str(q): float(np.quantile(intervals, q)*1000)
+                               for q in [0, .01, .1, .5, .9, .99, 1]} if len(intervals) else {},
+        first_30_crossings_ms=(crossings[:30]*1000).tolist(),
+        first_30_intervals_ms=(intervals[:30]*1000).tolist(),
+        ch2_min_v=float(ch2.min()), ch2_max_v=float(ch2.max()),
+        expected_50hz_period_ms=20., smoothing_samples=21,
+        decision='Diagnostic only; no rejected intervals silently removed and no density generated')
+    output.mkdir(parents=True, exist_ok=False)
+    fig, axes = plt.subplots(3, 1, figsize=(7.2, 7), constrained_layout=True)
+    def trace(ax, signal, stop):
+        edges = np.linspace(0, stop, min(4000, stop)+1, dtype=int)
+        low, high = [], []
+        for a, b in zip(edges[:-1], edges[1:]):
+            low.append(float(signal[a:b].min())); high.append(float(signal[a:b].max()))
+        t = (edges[:-1]+edges[1:])*.5/fs*1000
+        ax.fill_between(t, low, high, alpha=.5, color='steelblue')
+        ax.set_xlabel('Time from record start (ms)'); ax.set_ylabel('CH2 (V)')
+    trace(axes[0], ch2, len(ch2))
+    axes[0].set_title('Original CH2: full-record min/max envelope')
+    centered = legacy_movmean(ch2-ch2.mean(), 21)
+    stop = min(len(ch2), int(round(.06*fs)))
+    trace(axes[1], centered, stop)
+    selected = crossings[crossings < stop/fs]
+    displayed = selected[np.linspace(0,len(selected)-1,min(4000,len(selected)),dtype=int)] if len(selected) else selected
+    axes[1].scatter(displayed*1000, np.zeros(len(displayed)), s=5, color='darkred', label='detected rising crossings')
+    axes[1].axhline(0, color='gray', lw=.5)
+    axes[1].set_title('Mean-centered, 21-point smoothed CH2: first 60 ms')
+    axes[1].legend()
+    positive = intervals[intervals > 0]*1000
+    if len(positive):
+        low, high = float(positive.min()), float(positive.max())
+        if high > low:
+            axes[2].hist(positive, bins=np.geomspace(low, high, 60), color='steelblue')
+            axes[2].set_xscale('log')
+        else:
+            axes[2].hist(positive, bins=10, color='steelblue')
+    axes[2].axvline(20, color='darkred', ls='--', label='20 ms reference')
+    axes[2].set(xlabel='Consecutive rising-crossing interval (ms)', ylabel='Count',
+                title='All crossing intervals; no interval rejection')
+    axes[2].legend()
+    fig.suptitle(record_id+' | phase reference audit')
+    fig.savefig(output/'phase_reference_audit.png', dpi=300)
+    plt.close(fig)
+    (output/'phase_reference_report.json').write_text(json.dumps(stats, indent=2), encoding='utf-8')
+    print(json.dumps(stats, indent=2), flush=True)
+    print('Phase reference audit saved. Density NOT generated:', output, flush=True)
+
+
 def main(args):
     if args.output.exists():
         raise FileExistsError('Use a new diagnostic output directory')
@@ -84,10 +141,13 @@ def main(args):
     record = dict(records[0], record_id=args.record_id)
     print('Reading one clean validation record:', args.record_id, flush=True)
     waves = read_parent_record(args.raw_data, record)
-    phase, crossings = legacy_compute_phase_from_ch2(waves['phase_ref'].values(), record['sample_rate_hz'], smooth_win=21)
+    ch2 = waves['phase_ref'].values()
+    phase, crossings = legacy_compute_phase_from_ch2(ch2, record['sample_rate_hz'], smooth_win=21)
     periods = np.diff(crossings)
-    if not len(periods) or np.any((periods < .015) | (periods > .025)):
-        raise ValueError('CH2 has intervals outside 15-25 ms; inspect phase reference before plotting')
+    if args.phase_audit_only or not len(periods) or np.any((periods < .015) | (periods > .025)):
+        phase_audit(ch2, record['sample_rate_hz'], crossings, args.record_id, args.output)
+        return
+    del ch2
     results = {}
     report = dict(record_id=args.record_id, split='val', class_name=record['class_name'],
         manifest_sha256=hashlib.sha256(raw).hexdigest(),
@@ -123,4 +183,5 @@ if __name__ == '__main__':
     parser.add_argument('--raw-data', type=Path, required=True)
     parser.add_argument('--record-id', default='jd-6.9kv3_000')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--phase-audit-only', action='store_true', help='Inspect CH2 and crossing intervals; no density generation')
     main(parser.parse_args())
