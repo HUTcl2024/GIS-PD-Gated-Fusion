@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 METHODS = ['uhf', 'hfct', 'concat', 'equal', 'gfm', 'gfm_no_conf']
-OPTIONAL_METHODS = ['swin_uhf', 'swin_hfct', 'recovered_concat', 'recovered_equal']
+OPTIONAL_METHODS = ['swin_uhf', 'swin_hfct', 'recovered_concat', 'recovered_equal', 'cnn_gfm']
 
 
 def read(path):
@@ -82,7 +82,7 @@ def main(args):
     sys.path.insert(0, str(ROOT))
     import torch
     from torch.utils.data import DataLoader
-    from revision_train import Paired, build_model, evaluate
+    from revision_train import Paired, build_model, evaluate, AUX_METHODS
 
     torch.set_num_threads(args.threads)
     if args.device == 'cuda' and not torch.cuda.is_available():
@@ -121,7 +121,7 @@ def main(args):
         for scenario in scenarios:
             dataset = Paired(manifest, args.data, 'test', scenario)
             metrics = evaluate(model, DataLoader(dataset, batch_size=args.batch_size),
-                               device, manifest['classes'])
+                               device, manifest['classes'], diagnostics=method in AUX_METHODS)
             if metrics['n'] != args.expected_records or metrics.get('metric_unit') != 'original_record':
                 raise ValueError('Expected original-record metrics')
             save(args.output/f'{method}_seed{args.seed}'/f'test_{scenario}.json', metrics)
