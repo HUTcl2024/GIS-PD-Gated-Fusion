@@ -26,6 +26,47 @@ from revision_data import read_parent_record
 from generate_prpd_wfm import legacy_compute_phase_from_ch2, legacy_movmean
 
 
+def hysteresis_phase(ch2, fs):
+    """Arm below -h, accept above +h; interpolate a rising zero in between.
+
+    h=10% of the 99th percentile absolute centered/smoothed CH2. The threshold
+    only identifies a complete transition; phase zero remains at zero volts.
+    No 20ms rescheduling, interval deletion or fixed-frequency assumption.
+    """
+    ref = legacy_movmean(ch2-ch2.mean(), 21)
+    h = .1*float(np.quantile(np.abs(ref), .99))
+    if not np.isfinite(h) or h <= 0:
+        raise ValueError('CH2 lacks a usable reference amplitude')
+    below = np.where((ref[:-1] >= -h) & (ref[1:] < -h))[0]+1
+    above = np.where((ref[:-1] < h) & (ref[1:] >= h))[0]+1
+    zeros = np.where((ref[:-1] <= 0) & (ref[1:] > 0))[0]
+    events = sorted([(int(i), False) for i in below]+[(int(i), True) for i in above])
+    armed = 0 if ref[0] < -h else None
+    times = []
+    for i, positive in events:
+        if not positive:
+            armed = i
+        elif armed is not None:
+            left, right = np.searchsorted(zeros, [armed, i])
+            candidates = zeros[left:right]
+            if not len(candidates):
+                raise ValueError('No rising zero between hysteresis thresholds')
+            estimate = armed-ref[armed]*(i-armed)/(ref[i]-ref[armed])
+            j = int(candidates[np.argmin(np.abs(candidates-estimate))])
+            times.append((j-ref[j]/(ref[j+1]-ref[j]))/fs)
+            armed = None
+    crossings = np.asarray(times)
+    if len(crossings) < 2:
+        raise ValueError('Fewer than two complete hysteresis rising crossings')
+    t = np.arange(len(ref))/fs
+    cycle = np.searchsorted(crossings, t, side='right')-1
+    valid = (cycle >= 0) & (cycle < len(crossings)-1)
+    phase = np.full(len(ref), np.nan)
+    indices = cycle[valid]
+    phase[valid] = 360*(t[valid]-crossings[indices])/(crossings[indices+1]-crossings[indices])
+    return phase, crossings, h
+
+
 def density(phase, signal):
     valid = np.isfinite(phase) & np.isfinite(signal)
     x, y = phase[valid], signal[valid] * 1e6
@@ -142,8 +183,15 @@ def main(args):
     print('Reading one clean validation record:', args.record_id, flush=True)
     waves = read_parent_record(args.raw_data, record)
     ch2 = waves['phase_ref'].values()
-    phase, crossings = legacy_compute_phase_from_ch2(ch2, record['sample_rate_hz'], smooth_win=21)
+    threshold = None
+    if args.phase_method == 'hysteresis':
+        phase, crossings, threshold = hysteresis_phase(ch2, record['sample_rate_hz'])
+    else:
+        phase, crossings = legacy_compute_phase_from_ch2(ch2, record['sample_rate_hz'], smooth_win=21)
     periods = np.diff(crossings)
+    print('Phase method:', args.phase_method, '| crossings:', len(crossings),
+          '| period ms min/median/max:', (np.array([periods.min(), np.median(periods), periods.max()])*1000).tolist(),
+          '| hysteresis threshold V:', threshold, flush=True)
     if args.phase_audit_only or not len(periods) or np.any((periods < .015) | (periods > .025)):
         phase_audit(ch2, record['sample_rate_hz'], crossings, args.record_id, args.output)
         return
@@ -153,6 +201,7 @@ def main(args):
         manifest_sha256=hashlib.sha256(raw).hexdigest(),
         source_code_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         phase_bins=256, amplitude_bins=128, phase_source='CH2 rising-zero crossings, 21-point smoothing',
+        phase_method=args.phase_method, hysteresis_threshold_v=threshold,
         cycles=int(len(periods)), period_ms=dict(min=float(periods.min()*1000),
             median=float(np.median(periods)*1000), max=float(periods.max()*1000)),
         cycle_selection='all complete CH2 cycles; incomplete leading/trailing samples excluded',
@@ -184,4 +233,5 @@ if __name__ == '__main__':
     parser.add_argument('--record-id', default='jd-6.9kv3_000')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--phase-audit-only', action='store_true', help='Inspect CH2 and crossing intervals; no density generation')
+    parser.add_argument('--phase-method', choices=['legacy','hysteresis'], default='legacy')
     main(parser.parse_args())
