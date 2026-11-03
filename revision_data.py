@@ -330,9 +330,16 @@ def tile_fit(args):
         raise ValueError('Normalization fitting must use every training parent, clean only')
     if (args.output/'manifest.json').exists(): raise FileExistsError('Tile manifest already exists; do not refit')
     raw=args.parent_manifest.read_bytes(); parent=json.loads(raw)
-    if parent.get('representation'): raise ValueError('Expected original-record parent manifest')
+    if parent.get('representation') not in (None, 'original_records_for_full_prpd'):
+        raise ValueError('Expected original-record parent manifest, not already generated tiles or region views')
     records=parent['records']
     if len({r['group_id'] for r in records})!=len(records): raise ValueError('Parent group IDs must be unique')
+    if len({r['record_id'] for r in records})!=len(records): raise ValueError('Parent record IDs must be unique')
+    if any('parent_record_id' in r or 'phase_start_deg' in r for r in records):
+        raise ValueError('Parent manifest must contain original captures, not phase tiles')
+    if any(r['split'] not in {'train','val','test'} for r in records): raise ValueError('Invalid inherited split')
+    excluded=set(parent.get('deduplication',{}).get('excluded_record_ids',[]))
+    if excluded & {r['record_id'] for r in records}: raise ValueError('Excluded duplicate still present in parent manifest')
     train=[r for r in records if r['split']=='train']
     amplitudes={role:[] for role in ['uhf','hfct']}
     for i,r in enumerate(train,1):
@@ -360,6 +367,8 @@ def tile_fit(args):
             reference_scope='per-channel; consistent with legacy dual-channel prpd.py',
             rendering='white background; default blue scatter, size 8, alpha .9; 2.56 inch, dpi 256; LANCZOS resize 224',
             phase_tiles=12,tile_degrees=30,highpass=False,envelope=False),records=tiles)
+    for key in ['deduplication','split_protocol']:
+        if key in parent: manifest[key]=parent[key]
     dump(args.output/'manifest.json',manifest)
     print(f'Locked {len(records)} parent records -> {len(tiles)} paired tiles; references={references}',flush=True)
 
