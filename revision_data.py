@@ -24,6 +24,22 @@ def dump(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
+def assign_record_splits(records,seed):
+    """Split original captures, not views; preserve input ordering and identities."""
+    from sklearn.model_selection import train_test_split
+    if not 0<=seed<2**32: raise ValueError('split-seed must be in [0, 2**32)')
+    if (len({r['group_id'] for r in records})!=len(records)
+            or len({r['record_id'] for r in records})!=len(records)):
+        raise ValueError('Original records and group IDs must be unique')
+    labels=[r['class_name'] for r in records]
+    train,hold=train_test_split(np.arange(len(records)),test_size=.4,stratify=labels,random_state=seed)
+    val,test=train_test_split(hold,test_size=.5,stratify=[labels[i] for i in hold],random_state=seed)
+    result=[dict(r) for r in records]
+    for name,indices in [('train',train),('val',val),('test',test)]:
+        for i in indices: result[int(i)]['split']=name
+    return result
+
+
 def audit(args):
     from sklearn.model_selection import train_test_split
     out = args.output
@@ -86,15 +102,8 @@ def audit(args):
         raise ValueError(f'{len(errors)} invalid records; fix or explicitly exclude them before freezing the manifest. See audit_errors.json')
     if len({r['group_id'] for r in records}) != len(records):
         raise ValueError('Duplicate independent group IDs')
-    labels = [r['class_name'] for r in records]
-    train, hold = train_test_split(np.arange(len(records)), test_size=.4,
-                                  stratify=labels, random_state=42)
-    val, test = train_test_split(hold, test_size=.5,
-        stratify=[labels[i] for i in hold], random_state=42)
-    for name, indices in [('train',train), ('val',val), ('test',test)]:
-        for i in indices:
-            records[int(i)]['split'] = name
-    manifest = dict(schema=2, classes=CLASSES, split_seed=42,
+    records=assign_record_splits(records,args.split_seed)
+    manifest = dict(schema=2, classes=CLASSES, split_seed=args.split_seed,
         provenance='Author confirms each WFM triplet and each added three-channel CSV is an independent acquisition, not another export of a WFM, 2026-10-27; author declaration, not independently verified.',
         records=records)
     dump(out/'manifest.json', manifest)
@@ -132,6 +141,43 @@ REGION_VIEWS=[('global',0,360),('p000_120',0,120),('p120_240',120,240),('p240_36
 def region_paths(out,scenario,record):
     return [out/'images'/scenario/role/record['class_name']/(record['record_id']+'_'+view+'.png')
         for role in ['uhf','hfct'] for view,_,_ in REGION_VIEWS]
+
+
+def region_resplit(args):
+    """New record split and new train-only references; never reuse old images."""
+    if args.parent_manifest is None: raise ValueError('Provide existing region manifest')
+    if args.output.exists(): raise FileExistsError('Choose a new, nonexistent output directory')
+    if args.smoke or args.limit or args.record_ids or args.fraction or args.snr_db is not None or args.train_bank:
+        raise ValueError('Resplitting/refitting requires all parent records and clean waveforms')
+    raw=args.parent_manifest.read_bytes(); old=json.loads(raw)
+    if old.get('representation')!='legacy_global_three_regions': raise ValueError('Expected original-record region manifest')
+    if any('parent_record_id' in r for r in old['records']): raise ValueError('Do not split child tiles')
+    records=assign_record_splits(old['records'],args.split_seed)
+    if set(r['class_name'] for r in records)!=set(old['classes']): raise ValueError('Class set mismatch')
+    counts={s:dict(Counter(r['class_name'] for r in records if r['split']==s)) for s in ['train','val','test']}
+    changed=sum(a['split']!=b['split'] for a,b in zip(old['records'],records))
+    print(f'NEW split seed={args.split_seed}; parents={len(records)}; changed memberships={changed}. Old files untouched.',flush=True)
+    print(json.dumps(counts,ensure_ascii=False),flush=True)
+    train=[r for r in records if r['split']=='train']; amplitudes={role:[] for role in ['uhf','hfct']}
+    for i,r in enumerate(train,1):
+        pulses=legacy_pulses(args.data,r)
+        for role in amplitudes:
+            if pulses[role][1].size: amplitudes[role].append(pulses[role][1])
+        print(f'fit NEW train only [{i}/{len(train)}] {r["record_id"]}',flush=True)
+    references={}
+    for role,parts in amplitudes.items():
+        if not parts: raise ValueError('No training pulses for '+role)
+        references[role]=float(np.quantile(np.concatenate(parts),.99))
+        if not np.isfinite(references[role]) or references[role]<=0: raise ValueError('Invalid reference')
+    manifest=dict(old,split_seed=args.split_seed,records=records,
+        source_region_manifest_sha256=hashlib.sha256(raw).hexdigest(),
+        source_split_seed=old.get('split_seed'),
+        split_protocol='two-stage stratified 60/20/20 by original record; both stages use split_seed; inherited record order',
+        evaluation_warning='New development split of existing records, not newly acquired independent or untouched test data')
+    for key in ['source_tile_manifest_sha256','parent_manifest_sha256']: manifest.pop(key,None)
+    manifest['preprocessing']=dict(old['preprocessing'],a_ref=references,reference_fit_split='train',reference_quantile=.99)
+    dump(args.output/'manifest.json',manifest)
+    print(f'New region manifest saved; train-only references={references}. Render new images and retrain all compared models.',flush=True)
 
 
 def region_fit(args):
@@ -247,14 +293,15 @@ def legacy_pulses(root,record,fraction=0.,target='both',snr_db=None,noise_qualit
     return result
 
 
-def online_parent_images(root,record,references,snr_db,target,noise_seed,view_definitions=None):
+def online_parent_images(root,record,references,snr_db,target,noise_seed,view_definitions=None,pulses_override=None):
     """Legacy rendering to compressed PNG bytes in RAM, with no file writes."""
     from io import BytesIO
     from PIL import Image
     from generate_prpd_wfm import legacy_normalize_amplitude_global,plt
-    pulses=legacy_pulses(root,record,target=target,snr_db=snr_db,noise_seed=noise_seed)
+    pulses=(legacy_pulses(root,record,target=target,snr_db=snr_db,noise_seed=noise_seed)
+        if pulses_override is None else pulses_override)
     result={}
-    for role in ['uhf','hfct']:
+    for role in pulses:
         phase,amp=pulses[role]
         amplitude=legacy_normalize_amplitude_global(amp,references[role],mode='asinh',gamma=2.)
         views=view_definitions if view_definitions is not None else [(f'p{a:03d}_{a+30:03d}',a,a+30) for a in range(0,360,30)]
@@ -765,7 +812,8 @@ def diagnose_snr(args):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action',choices=['audit','render','tile-fit','tile-render','region-fit','region-render','diagnose-snr','audit-snr','audit-gates','audit-reliability'])
+    p.add_argument('action',choices=['audit','render','tile-fit','tile-render','region-fit','region-resplit','region-render','diagnose-snr','audit-snr','audit-gates','audit-reliability'])
+    p.add_argument('--split-seed',type=int,default=3407,help='Original-record split seed for audit or region-resplit; existing manifests are never edited')
     p.add_argument('--data',type=Path,default=ROOT/'data')
     p.add_argument('--output',type=Path,default=ROOT/'revision_output')
     p.add_argument('--checksum',action='store_true')
@@ -785,4 +833,4 @@ if __name__=='__main__':
     if not np.isfinite(a.fraction) or a.fraction<0: p.error('fraction must be finite and nonnegative')
     if a.snr_db is not None and (not np.isfinite(a.snr_db) or not -100<=a.snr_db<=100 or a.fraction or a.action not in ['tile-render','region-render']):
         p.error('snr-db requires tile-render or region-render, finite -100..100 dB, and fraction 0')
-    {'audit':audit,'render':render,'tile-fit':tile_fit,'tile-render':tile_render,'region-fit':region_fit,'region-render':region_render,'diagnose-snr':diagnose_snr,'audit-snr':audit_snr,'audit-gates':audit_gates,'audit-reliability':audit_reliability}[a.action](a)
+    {'audit':audit,'render':render,'tile-fit':tile_fit,'tile-render':tile_render,'region-fit':region_fit,'region-resplit':region_resplit,'region-render':region_render,'diagnose-snr':diagnose_snr,'audit-snr':audit_snr,'audit-gates':audit_gates,'audit-reliability':audit_reliability}[a.action](a)
