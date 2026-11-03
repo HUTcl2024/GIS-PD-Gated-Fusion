@@ -97,7 +97,7 @@ Clean test accuracy: UHF 98.74%, HFCT 98.74%, concat 98.11%, equal 100.00%, GFM 
 | −10 dB | 46.54 | 51.57 | 57.23 | **65.41** |
 | −5 dB | 46.54 | 63.52 | 51.57 | **65.41** |
 
-Accuracy (%), transcribed from the author's completed server output. [All ten test conditions and six models](docs/RESULTS_ARCHIVE.md) include unfavorable results. The advantage is conditional on UHF-only pollution in these tested conditions; neither consistent HFCT-only/both-channel gains nor repeated-seed superiority is established. The repository does not include private prediction files or independently re-verify the reported numbers.
+Accuracy (%), transcribed from the author's completed server output. This table displays selected UHF-only test conditions, not the complete set of measured conditions. The advantage is conditional on UHF-only pollution in these tested conditions; neither consistent HFCT-only/both-channel gains nor repeated-seed superiority is established. The repository does not include private prediction files or independently re-verify the reported numbers.
 
 ### Code map
 
@@ -134,7 +134,7 @@ The following historical documentation is retained for traceability. It describe
 [![Status](https://img.shields.io/badge/status-research%20development-blue)](#-release-status)
 [![Protocol](https://img.shields.io/badge/new%20split%20seed-3407-green)](#-data-and-protocol)
 
-[Complete historical results](docs/RESULTS_ARCHIVE.md) · [Reproduction workflow](#-training-and-evaluation)
+[Reproduction workflow](#-training-and-evaluation)
 
 </div>
 
@@ -318,7 +318,7 @@ The following author-supplied validation results use the older fixed split, 158 
 | UHF only | 96.20% | 98.10% | +1.90 pp |
 | HFCT only | 73.42% | 96.84% | +23.42 pp |
 
-Both methods obtained 100% clean validation accuracy in that run. Full SNR results, including unfavorable conditions, are in [RESULTS_ARCHIVE.md](docs/RESULTS_ARCHIVE.md). For example, under both-channel corruption the classification gate underperformed equal fusion at 0 and 5 dB. The interval loss produced the same aggregate accuracies as the CE gate in all 19 conditions; no added accuracy benefit is claimed. A separate five-seed end-to-end study had mixed outcomes and is not a replication of this frozen-expert experiment.
+Both methods obtained 100% clean validation accuracy in that run. For example, under both-channel corruption the classification gate underperformed equal fusion at 0 and 5 dB. The interval loss produced the same aggregate accuracies as the CE gate in all 19 conditions; no added accuracy benefit is claimed. A separate five-seed end-to-end study had mixed outcomes and is not a replication of this frozen-expert experiment.
 
 
 ## 🧩 Modules
