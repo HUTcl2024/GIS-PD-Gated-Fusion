@@ -81,8 +81,8 @@
       "bytes": 11037
     },
     "scripts/gaussian_pulse_fixed_test.py": {
-      "sha256": "f88364d6f109bf33a074b6e3954ce737c24bdb0733c0d4adc51f742cb58128bb",
-      "bytes": 19971
+      "sha256": "d267702be517ca6b62b3f3660234fc87ff29bcb9d39650129274223f799a4f59",
+      "bytes": 20802
     }
   },
   "gaussian_pulse_extension": {
@@ -101,7 +101,8 @@
       "Six measured SNRs and fixed realization across SNRs",
       "Independent channel seeds and invalid sampling-rate guard",
       "Real synthetic waveform/detector/Matplotlib/PIL integration:18 scenarios, identical both/single corruption bytes, unaffected channels copied exactly",
-      "CLI import/help (Matplotlib import stub in Torch environment)"
+      "CLI import/help (Matplotlib import stub in Torch environment)",
+      "Standalone CNN definition imports with legacy revision_train lacking CNNEncoder; seeded state dictionaries and forward outputs match current CNNEncoder."
     ]
   }
 }

@@ -25,7 +25,25 @@ from revision_data import read_parent_record,image_paths
 from PIL import Image
 from sklearn.metrics import accuracy_score,recall_score,f1_score,classification_report
 from torch import nn
-from revision_train import Paired,build_model,evaluate,AUX_METHODS,CNNEncoder
+from revision_train import Paired,build_model,evaluate,AUX_METHODS
+
+class CNNEncoder(nn.Module):
+    """Three-block RGB CNN; retains the original GFM's feature/head interfaces."""
+    def __init__(self, backbone, dim, classes, pretrained):
+        super().__init__()
+        layers = []
+        previous = 3
+        for width in [32, 64, 128]:
+            layers += [nn.Conv2d(previous, width, 3, padding=1, bias=False),
+                       nn.BatchNorm2d(width), nn.ReLU(), nn.MaxPool2d(2)]
+            previous = width
+        self.backbone = nn.Sequential(*layers, nn.AdaptiveAvgPool2d(1), nn.Flatten())
+        self.feat_proj = nn.Sequential(nn.Linear(128, dim), nn.ReLU())
+        self.head = nn.Sequential(nn.Linear(128, dim), nn.ReLU(), nn.Dropout(.5), nn.Linear(dim, classes))
+
+    def forward(self, x):
+        feature = self.backbone(x)
+        return self.feat_proj(feature), self.head(feature)
 
 def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
 
