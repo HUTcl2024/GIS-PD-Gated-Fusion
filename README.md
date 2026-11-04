@@ -90,3 +90,12 @@ Validation: six fusion-study models × (clean + 18 noise)=114 rows, n=157. Test:
 See [reported test results](docs/RESULTS.md) and [source provenance](SOURCE_PROVENANCE.json). This release removes superseded tile/region/temporal/reliability/attention and percentage-noise entry points. It preserves the active model parameter names and numerical PRPD helpers; the current representation uses a single full view.
 
 Use a **fresh checkout and fresh output directories** for this release. Do not overwrite an archived server environment or edit a trained manifest to bypass a hash check. Refactoring changes module byte hashes even when retained numerical functions are identical; old interrupted jobs require their original code snapshot. The private server source files/manifests/checkpoints have not been fetched by this assistant; server executions and scores are author-reported, while local regression checks use synthetic inputs.
+
+
+## Additional Gaussian-shaped pulse interference
+
+The frozen test extension is `scripts/gaussian_pulse_fixed_test.py`. It keeps the same six SNRs, three corruption directions, 158 test records and twelve frozen checkpoints. It does not add white noise simultaneously. Random pulse centers and independent random signs are fixed per record/channel; each Gaussian-shaped pulse has FWHM1 microsecond, is truncated at +/-4 sigma, and the realized pulse count is round(1000*record duration in seconds). Overlaps are allowed. The pulse train is demeaned, then scaled by its measured full-record mean-square power to the same SNR definition used for AWGN. Width/rate are synthetic evaluation settings, not measured field interference.
+
+Pass `--pulse-fwhm-us 1 --pulse-rate-hz 1000` explicitly. Other required arguments are `--data`, `--raw-data`, `--clean-source` (the completed twelve-model clean-test directory), `--val-noise-source` (the original AWGN validation protocol, for fixed axes/settings) and a fresh `--output`. New images use `test_gaussian_pulse_*`, leaving AWGN scenarios unchanged. Expected output is228 rows including repeated clean controls; no accuracy is reported before server execution.
+
+For archived server experiments, copy **only this self-contained new script** next to the original `revision_train.py`, `revision_data.py` and `generate_prpd_wfm.py` (for example under /home/aa/cl-2). Do not replace those archived modules: their recorded byte hashes remain required. The script also runs from scripts/ in a fresh current checkout.

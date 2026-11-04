@@ -79,6 +79,29 @@
     "scripts/rawvolts_single_baselines.py": {
       "sha256": "f7536a78163323aba45d8a0eb8f24d035ea611554c3f4a648cd5d36c93ec3800",
       "bytes": 11037
+    },
+    "scripts/gaussian_pulse_fixed_test.py": {
+      "sha256": "f88364d6f109bf33a074b6e3954ce737c24bdb0733c0d4adc51f742cb58128bb",
+      "bytes": 19971
     }
+  },
+  "gaussian_pulse_extension": {
+    "server_executed": false,
+    "fwhm_us": 1,
+    "rate_hz": 1000,
+    "snr_db": [
+      -15,
+      -10,
+      -5,
+      0,
+      5,
+      10
+    ],
+    "checks": [
+      "Six measured SNRs and fixed realization across SNRs",
+      "Independent channel seeds and invalid sampling-rate guard",
+      "Real synthetic waveform/detector/Matplotlib/PIL integration:18 scenarios, identical both/single corruption bytes, unaffected channels copied exactly",
+      "CLI import/help (Matplotlib import stub in Torch environment)"
+    ]
   }
 }
