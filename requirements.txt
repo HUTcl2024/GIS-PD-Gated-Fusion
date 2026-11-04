@@ -1,4 +1,4 @@
-# Install the CUDA-matched PyTorch pair first, as shown in README.md.
+# Install a CUDA-matched torch/torchvision pair first; server versions below.
 torch==2.9.1
 torchvision==0.24.1
 numpy>=1.24,<3
@@ -6,3 +6,4 @@ scipy>=1.10,<2
 scikit-learn>=1.3,<2
 matplotlib>=3.7,<4
 Pillow>=10,<13
+joblib>=1.3,<2

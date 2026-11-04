@@ -1,92 +1,84 @@
 {
-  "snapshot": "server_data_update_and_paper_reproduction_entry",
+  "snapshot": "deduplicated_full360_raw_voltage_frozen_evaluation",
+  "updated_date": "2026-11-04",
   "server_verified": false,
-  "verification_scope": "The author reported matching server SHA256 for revision_data.py and revision_train.py. This update packages the completed terminal test evaluation as a script and separates the paper tile protocol from historical region development. The standalone script passed synthetic end-to-end aggregation and preflight checks, but has not been rerun on private server inputs.",
-  "capabilities": {
-    "region_resplit": true,
-    "explicit_split_seed": true,
-    "interval_supervision": true,
-    "parallel_noise_preparation": true,
-    "temporal_script": false,
-    "feature_concat": true
+  "verification_scope": "Current workflow reconstructed from local source and author-reported server execution. Private server source, data and checkpoints were not fetched. Refactoring changes module byte hashes; archived jobs need their original source snapshot.",
+  "protocol": {
+    "original_records": 786,
+    "train": 471,
+    "val": 157,
+    "test": 158,
+    "split_seed": 42,
+    "training_seed": 3407,
+    "representation": "one complete 360-degree PRPD per channel, resized224",
+    "amplitude_normalization": false,
+    "axis_fit_split": "clean_train_only",
+    "noise": "fixed raw-waveform AWGN, seed2026, six SNRs and three corruption directions",
+    "selection": "clean record-level validation macro F1, first maximum"
   },
-  "optional_files_not_copied": [
-    "revision_temporal.py"
+  "local_checks": [
+    "All retained Python files compile; seven executable entry points import and show help (Torch environment used a Matplotlib import stub for non-rendering checks).",
+    "Original and refactored six fusion methods have identical seeded initialization, logits, weights and parameter gradients on synthetic encoder inputs.",
+    "Synthetic 786-record audit checks every record, lists an abnormal CH2 and blocks images/manifest on failure.",
+    "Synthetic passing CH2 audit fits raw-voltage axes on exactly471 training records; no validation/test amplitude fit.",
+    "Real Matplotlib/PIL scatter rendering produces224x224 PNG.",
+    "Synthetic fixed-noise checks: measured SNR, identical channel noise/images across paired scenarios, unchanged clean channel; white/overflow reporting.",
+    "Synthetic clean-test and fixed-noise evaluation orchestration: twelve models,228 rows, unchanged checkpoint hashes; not a reproduction of private reported accuracy."
   ],
-  "preserved_local_optional": {
-    "revision_temporal.py": {
-      "sha256": "7cfaefbdd1dc8b3bd93b3ac3a77875310b9ede4629800d0eaaf861ddebe77533",
-      "reason": "Kept repository version; absent on server and not server-verified"
-    }
-  },
-  "captured_at_utc": "2026-11-02T01:10:05.130519+00:00",
-  "line_endings": "Repository code uses LF; source_sha256 hashes original bytes, sha256 hashes LF-normalized repository bytes",
+  "results_origin": "Author-supplied terminal outputs, separately marked in docs/RESULTS.md; no private predictions published.",
+  "line_endings": "UTF-8 LF; SHA256 covers published file bytes",
   "files": {
-    "revision_data.py": {
-      "sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
-      "source_sha256": "8ab6eafa45dee746c2e5e444e22694ec5dc5287d2fe9cbdcd6eef4ce356bdac0",
-      "bytes": 55919,
-      "verification": "Matches author-supplied server SHA256"
-    },
-    "revision_train.py": {
-      "sha256": "e922cbdee4f2857312031cb0dc186e9dd758b22bc9c46aef75e24cf38c636b3b",
-      "source_sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
-      "bytes": 70370,
-      "previous_sha256": "897e6f284b82b2e2d8747e1b8c018d74d20bb7a6e38b71e9b94f89bad973cf46",
-      "server_verified": false,
-      "change": "Added cnn_gfm: RGB CNN32/64/128 -> separate 512D gate projection and classifier; original 1026->128->2 confidence gate retained. Existing methods retained."
-    },
-    "revision_reliability.py": {
-      "sha256": "124313ab8f12bf8b46b7167e82c8edef1215f466463098a9d6583627802a654a",
-      "bytes": 43115,
-      "base_server_sha256": "5ebde725acf0e16b8798ed467600edbc6d658843a2fdddc63c5e0b65d9248525",
-      "server_verified": false,
-      "change": "Added feature_concat only; original gate defaults retained. Forward/backward, diagnostics, checkpoint round-trip and original gate output regression checks passed locally."
-    },
     "generate_prpd_wfm.py": {
-      "sha256": "65f6709f2cb017797cfd83c3aa3f6882b9159d4e936efbb1bf455827c052ede5",
-      "source_sha256": "d535d170ca1193d1272bb57e04d8c196d483d107fa2f47777a7f6ee8ed69e9c7",
-      "bytes": 11098
-    },
-    "mso44_wfm.py": {
-      "sha256": "766a3c8fc2778cb26451db40ca871347c4c415d42d328f9e2e1d53a07b0efa22",
-      "source_sha256": "766a3c8fc2778cb26451db40ca871347c4c415d42d328f9e2e1d53a07b0efa22",
-      "bytes": 5004
+      "sha256": "7c78fd960340200f5d0f222880a6bcd1ca3b529413a0b7bb5257950a8c3410d0",
+      "bytes": 5610
     },
     "mso44_csv.py": {
       "sha256": "acd885f6b6e7c845c9b7ebb3c64142ffda157eba0cae509e1ba9715f488beb62",
-      "source_sha256": "acd885f6b6e7c845c9b7ebb3c64142ffda157eba0cae509e1ba9715f488beb62",
       "bytes": 4243
     },
+    "mso44_wfm.py": {
+      "sha256": "766a3c8fc2778cb26451db40ca871347c4c415d42d328f9e2e1d53a07b0efa22",
+      "bytes": 5004
+    },
     "recovered_models.py": {
-      "sha256": "ede44ccb2a45bcab30b6be9849d76b55a02f05a08deab11bdab34fb075a5c8d0",
-      "source_sha256": "3cf0c7aff00cfd864d163c72702e0cc9581d00e4f6d326877e6ff501c087cace",
-      "bytes": 3052,
-      "change": "Documentation link corrected; executable model definitions unchanged"
+      "sha256": "766464a04b28b8c5471efb206774f4a7e0cd2c360cdf2dd15df5310abd5006b2",
+      "bytes": 934
+    },
+    "requirements.txt": {
+      "sha256": "a0b97853758e6082efb21dfb1aab6c0b426bb5a77e0eae44b1912a89ce8a5f00",
+      "bytes": 220
+    },
+    "revision_data.py": {
+      "sha256": "2e0aa5eb8828c771145fad138afd4d3b0c8be8e4c25a377ec7e8c2b08aec7074",
+      "bytes": 2741
+    },
+    "revision_train.py": {
+      "sha256": "59e453322505c6438a7238bcd604ab9e8c4b8a25fc9ece19d34d4bef322a95e4",
+      "bytes": 15035
+    },
+    "scripts/baseline_features.py": {
+      "sha256": "6a392b2c13713f60010fa96b13a26b8a454be755849da61158e5d4f0e8001ef8",
+      "bytes": 712
+    },
+    "scripts/evaluate_rawvolts_clean_test.py": {
+      "sha256": "0e1c1f0f2e84e65d1a7acaa22b55cc3e131bce4b13876804ca05f817fc1cfe51",
+      "bytes": 7353
+    },
+    "scripts/full360_fixed_noise_test.py": {
+      "sha256": "bb9f47f4df7a1d8158220228e5eca7344b552731d69a1a01b346a09229b29f8a",
+      "bytes": 15699
+    },
+    "scripts/full360_fixed_noise_val.py": {
+      "sha256": "ff87b46d4d9ece00ed0cb1439eae45b8df4ab5794e6e95452fcb2094bba9a4a8",
+      "bytes": 13680
+    },
+    "scripts/prepare_full360.py": {
+      "sha256": "d20b154debf12ddccae387651880bca914ddc504413e5fa197e2256782deb5b0",
+      "bytes": 8344
+    },
+    "scripts/rawvolts_single_baselines.py": {
+      "sha256": "f7536a78163323aba45d8a0eb8f24d035ea611554c3f4a648cd5d36c93ec3800",
+      "bytes": 11037
     }
-  },
-  "exclusions": "No data, manifests, checkpoints, predictions, logs or manuscripts copied",
-  "paper_evaluation_entry": {
-    "path": "scripts/evaluate_tile_test.py",
-    "sha256": "ed95c4f49aa2ca9e8087f02581f7ef55264c1b387c969417a053579e2f641757",
-    "training_changed": false,
-    "private_data_execution_verified": false,
-    "validation": "60 synthetic evaluations with actual record aggregation; mismatched split/count and output overwrite rejected; source fixtures unchanged"
-  },
-  "paper_protocol": {
-    "split_seed": 42,
-    "training_seed": 3407,
-    "representation": "legacy_phase_tiles_30deg",
-    "checkpoint_selection": "tile validation macro F1",
-    "evaluation_unit": "original_record",
-    "test_records": 159,
-    "reported_test_rows": 60,
-    "result_source": "Author-supplied completed terminal output; private predictions not included"
-  },
-  "baseline_source_audit": {
-    "document": "docs/BASELINES.md",
-    "server_source_hashes_confirmed_by_author": true,
-    "scope": "Five original source identities; optional baseline test interface added; no new training or accuracy results"
-  },
-  "cnn_gfm_status": "Synthetic forward/backward, fusion formula and state reload checked. No private-data training. Author-reported data-leakage investigation unresolved."
+  }
 }

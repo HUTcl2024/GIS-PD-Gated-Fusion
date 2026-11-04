@@ -1,120 +1,92 @@
 # Dual-Channel Gated Fusion for GIS Partial Discharge Identification
 
-Paired UHF/HFCT waveforms → PRPD → twelve paired 30° phase tiles → gated logit fusion → original-record classification.
+UHF/HFCT raw waveforms → corrected CH2 phase → complete 360° PRPD images → ResNet50 confidence-gated logit fusion.
 
-![Pipeline overview](assets/overview.png)
+![Framework](assets/overview.png)
 
-## Paper experiment
+## Current experiment
 
-This section documents the **12-tile, clean-trained experiment** used in the current revision. The global-plus-three-region, frozen-expert and noise-trained gate experiments below are separate development studies. Their checkpoints and results are not interchangeable.
-
-| Setting | Paper experiment |
+| Setting | Value |
 |---|---|
-| Original records | 791: jd 188, qx 201, xf 200, ym 202 |
-| Train / validation / test | 474 / 158 / 159 original records |
-| Split seed / training seed | **42 / 3407** |
-| Representation | 12 paired 30° phase tiles per record, 224×224 RGB |
-| Training | Clean images, ImageNet initialization, no online noise, no auxiliary branch loss |
-| Methods | `uhf`, `hfct`, `concat`, `equal`, `gfm`, `gfm_no_conf` |
-| Optimization | Adam, learning rate 0.001; StepLR every 10 epochs, factor 0.1; 30 epochs; batch size 32 |
-| Checkpoint selection | Clean validation **tile-level macro-F1**, first maximum |
-| Reported evaluation | Mean of 12 tile softmax probability vectors per original record |
-| Fixed test noise | AWGN: −15, −10, −5 dB; both / UHF only / HFCT only |
+| Deduplicated original records | 786 |
+| Train / validation / test | 471 / 157 / 158 original records |
+| Split / training seed | 42 / 3407; memberships inherited from the saved manifest |
+| Input | One complete PRPD per sensor, RGB, 224×224; no phase tiles |
+| Amplitude | Raw absolute detected voltage, no asinh/min-max mapping or numerical clipping |
+| Vertical axes | Fixed separately per channel: 1.05 × maximum detected clean **training** peak |
+| Phase reference | CH2 hysteresis rising-zero crossing; 21-point smoothing; measured periods |
+| Training | Clean only, no random crop/flip, no auxiliary loss; ImageNet pixel normalization |
+| Fusion models | UHF, HFCT, concatenation, equal logits, GFM, GFM without confidence |
+| Selection | Clean record-level validation mean F1; first maximum |
+| Noise | Raw-waveform AWGN; SNR −15, −10, −5, 0, 5, 10 dB; UHF-only / HFCT-only / both |
 
-The split is stratified by class at the **original-record level**. Tiles from one record never cross subsets. The implementation does not enforce acquisition-session, physical-specimen or voltage-held-out partitions; independent acquisition is author-declared provenance. The same test partition was inspected under earlier development representations, so it is not an untouched external validation dataset.
+The partition is at original-record level and stratified by class. This code does not impose batch-held-out, voltage-held-out or specimen-held-out partitions. Duplicate captures must be removed **before** creating the supplied original-record manifest. A seed alone is insufficient to reconstruct memberships without the same accepted records and ordering.
 
-### Architecture
+## Method
 
-Each sensor has a ResNet50 producing a pooled 2048D vector. Two separate paths use this vector:
+Each ResNet50 supplies a pooled 2048D vector. Separate paths produce a 512D ReLU gate feature and four logits (`2048→512→ReLU→Dropout(0.5)→4`). Channel confidence is the largest softmax probability. The gate concatenates the two 512D features and two confidences: `1026→128→ReLU→2→Softmax`. The final logits are `w_UHF*z_UHF + w_HFCT*z_HFCT`.
 
-- Gate feature: `2048 → 512 → ReLU`.
-- Classifier: `2048 → 512 → ReLU → Dropout(0.5) → 4 logits`.
+`concat` classifies concatenated 512D features; `equal` averages the two branch logits; `gfm_no_conf` sets both confidence inputs to zero while preserving gate dimensions. Parameter names and initialization order are retained for saved checkpoint loading. Single-sensor Swin-T and CNN implementations are retained only for the current baselines.
 
-Channel confidence is the maximum softmax class probability. Concatenating two 512D gate features and two scalar confidences gives a 1026D input. The gate is `Linear(1026,128) → ReLU → Linear(128,2) → Softmax`. Its two weights sum to one and combine the **branch logits**. Each paired tile is processed separately; only the final class probabilities are averaged across 12 tiles.
+CH1=UHF, CH2=power-frequency reference, CH3=HFCT. The CH2 hysteresis threshold is 10% of the 99th percentile absolute centered/smoothed reference. Phase zero remains the interpolated rising **zero**, not the hysteresis threshold. Any measured period outside 15–25 ms causes an explicit error; intervals are not silently removed. Incomplete leading/trailing cycles are excluded.
 
-`gfm_no_conf` replaces both confidence scalars with zero while retaining the gate dimensions. `equal` jointly trains an average of branch logits. `concat` learns a linear classifier on concatenated 512D features. These end-to-end comparisons do not use the identical frozen experts employed by the separate reliability studies.
+Peak detection remains `median(abs(x))+8*MAD(abs(x))`; above-threshold samples separated by at most 2 μs (minimum five samples) form one group, represented by its largest absolute sample. These are algorithmic detections, not independently verified physical PD counts. No high-pass/envelope filtering is applied.
 
-### Preprocessing and noise
+Raw amplitudes are passed directly to the scatter renderer. Points outside the fixed vertical axis are outside the displayed image and are explicitly counted; they are not compressed or clamped to the image top. RGB pixel standardization for neural networks is distinct from voltage-amplitude normalization.
 
-CH1 = UHF, CH2 = power-frequency phase reference, CH3 = HFCT. WFM triplets and supported three-channel CSV exports are read by `mso44_wfm.py` and `mso44_csv.py`.
+## Install
 
-`revision_data.py` imports the `legacy_*` helpers from `generate_prpd_wfm.py`: CH2 zero-crossing phase estimation (21-point smoothing), pulse threshold `median(abs(x)) + 8*MAD(abs(x))`, and peak grouping with a 2 μs gap (at least five samples). The tile path does not use the separate high-pass/envelope whole-image routine in that file. The amplitude reference is the pooled 99th percentile of clean **training** pulse amplitudes per channel; the historical split-42 references were UHF 0.019375 V and HFCT 0.04566875 V. Values are transformed by `asinh(2*amplitude/a_ref)/asinh(2)` and clipped to [0,1]. Validation and test never refit the references.
-
-Images use ImageNet normalization, without random cropping or flipping. Noise is added to the **waveform before pulse extraction and drawing**, not to image pixels. Reference power is `mean((x - median(x))**2)` over the complete captured waveform, including existing background. Demeaned Gaussian noise is scaled to the requested power ratio. Both-channel noise is independently generated per channel using each channel's own reference power; CH2 remains clean. The fixed seed is 2026, hashed with record identity and channel. The same channel uses matched noise across the three pollution directions and SNRs.
-
-### Reproduction
-
-Install PyTorch 2.9.1 / torchvision 0.24.1 with the appropriate CUDA wheel, then `pip install -r requirements.txt`. The recorded server used CUDA 12.8 wheels and RTX 4090. Supporting package ranges are not a historical environment lock. Raw data and model files are not bundled.
-
-Use the exact archived original-record manifest to reproduce historical memberships. A random seed alone is insufficient if the record ordering or accepted captures differ. Keep existing manifests, checkpoints and result directories unchanged.
-
-For a fresh tile representation of that archived split:
+Recorded server: Python 3.10, PyTorch 2.9.1+cu128, torchvision 0.24.1+cu128, RTX4090. Install the CUDA-matched PyTorch pair, then:
 
 ```bash
-python -B revision_data.py tile-fit \
-  --data "$RAW_DATA" --parent-manifest "$PARENT_MANIFEST" --output "$TILES"
-python -B revision_data.py tile-render --data "$RAW_DATA" --output "$TILES"
+pip install -r requirements.txt
 ```
 
-The parent manifest must be the split-42 manifest. Do not use `region-fit`, `region-resplit` or the split-3407 study for this experiment. Training reproduction (not required to evaluate the saved models):
+Raw waveforms, manifests, trained weights and per-record predictions are private and are not included. The original-record manifest needs `classes`, `split_seed`, `records` and deduplication provenance. Each record needs `record_id`, unique `group_id`, `class_name`, `split`, `source_format`, `sources`, `sample_rate_hz` and `samples`; CSV records also need `source_sha256`. WFM sources are ordered CH1, CH2, CH3. Supported CSV layout is TIME,CH1,CH2,CH3.
+
+## Reproduce in fresh directories
+
+Set paths to the supplied deduplicated **original-record** manifest, waveforms, new image directory and new run directories:
 
 ```bash
-CUDA_VISIBLE_DEVICES=1 python -B revision_train.py \
-  --data "$TILES" --output "$NEW_TRAIN_RUN" \
-  --methods uhf hfct concat equal gfm gfm_no_conf --seeds 3407 \
-  --epochs 30 --batch-size 32 --selection-unit tile --validation-only
+export RAW_DATA=/path/to/raw_waveforms
+export DEDUP_MANIFEST=/path/to/deduplicated_original_records/manifest.json
+export DATA=/path/to/new_full360_rawvolts
+export FUSION_RUN=/path/to/new_fusion_run
+export BASELINE_RUN=/path/to/new_single_sensor_run
+export VAL_NOISE_RUN=/path/to/new_val_noise_run
+export CLEAN_TEST_RUN=/path/to/new_clean_test_run
+export NOISE_TEST_RUN=/path/to/new_noise_test_run
+
+python -u -B scripts/prepare_full360.py   --manifest "$DEDUP_MANIFEST" --raw-data "$RAW_DATA" --output "$DATA"
+
+CUDA_VISIBLE_DEVICES=1 python -u -B revision_train.py   --data "$DATA" --output "$FUSION_RUN"   --methods uhf hfct concat equal gfm gfm_no_conf --seeds 3407   --epochs 30 --batch-size 32 --selection-unit record --aux-weight 0 --validation-only
+
+CUDA_VISIBLE_DEVICES=1 python -u -B scripts/full360_fixed_noise_val.py   --data "$DATA" --raw-data "$RAW_DATA" --source "$FUSION_RUN" --output "$VAL_NOISE_RUN"
+
+CUDA_VISIBLE_DEVICES=1 python -u -B scripts/rawvolts_single_baselines.py   --data "$DATA" --source "$FUSION_RUN" --noise-results "$VAL_NOISE_RUN"   --output "$BASELINE_RUN" --seed 3407 --epochs 30
+
+CUDA_VISIBLE_DEVICES=1 python -u -B scripts/evaluate_rawvolts_clean_test.py   --data "$DATA" --fusion-source "$FUSION_RUN" --baseline-source "$BASELINE_RUN"   --swin-source "$BASELINE_RUN" --output "$CLEAN_TEST_RUN"
+
+CUDA_VISIBLE_DEVICES=1 python -u -B scripts/full360_fixed_noise_test.py   --data "$DATA" --raw-data "$RAW_DATA" --clean-source "$CLEAN_TEST_RUN"   --val-noise-source "$VAL_NOISE_RUN" --output "$NOISE_TEST_RUN"
 ```
 
-For fixed noisy **test** tiles:
+Preparation audits all 786 CH2 references before drawing. Abnormal records are listed and block generation; no record is silently excluded. It fits channel axes on train only, creates 1572 clean full images and records out-of-axis peaks. Training uses train/val only. The baseline script reuses existing independent ResNet50 and dual GFM results and trains SVM/CNN/Swin-T per sensor.
 
-```bash
-for snr in -15 -10 -5; do
-  for target in both uhf hfct; do
-    python -B revision_data.py tile-render \
-      --data "$RAW_DATA" --output "$TILES" \
-      --noise-split test --snr-db "$snr" --target "$target" || break 2
-  done
-done
-```
+CNN: RGB convolution blocks 32/64/128, GAP and 512D classifier, random initialization. Swin-T: ImageNet initialization, 768→512→ReLU→Dropout(0.5)→4. Deep models use Adam, batch 32, 30 epochs, StepLR(step 10, gamma 0.1). CNN/ResNet learning rate is 0.001; final Swin-T learning rate is 0.00001. SVM uses grayscale 64×64 pixels, train-fitted PCA 128 and StandardScaler, RBF SVC(C=10,gamma=scale); it does not use HOG. Optimization is therefore comparable where applicable, not identical across all model families.
 
-Evaluate saved checkpoints without training:
+The reported server Swin models came from a separate low-learning-rate run. For those archived checkpoints, pass that directory as `--swin-source`. Fresh reproduction trains Swin directly with the final learning rate in `$BASELINE_RUN`.
 
-```bash
-CUDA_VISIBLE_DEVICES=1 python -B scripts/evaluate_tile_test.py \
-  --data "$TILES" --source "$TRAIN_RUN" --output "$NEW_TEST_RUN" \
-  --seed 3407 --expected-split-seed 42
-```
+## Fixed interference and outputs
 
-Historical server paths: `TILES=/home/aa/cl-2/revision_output_tiles`, `TRAIN_RUN=/home/aa/cl-2/runs/tiles_val_seed3407`; the completed terminal evaluation is in `/home/aa/cl-2/runs/tiles_test_seed3407`. **There is no need to rerun that completed evaluation.** The packaged evaluator provides a repeatable entry point using the same `Paired`, `build_model` and `evaluate` functions, with extra preflight checks and provenance. It refuses existing output directories and never updates the source models. A complete run has 60 rows (six models × ten conditions), each with 159 original-record predictions. Its end-to-end execution on the private server data has not yet been repeated as a standalone script.
+SNR is `10*log10(mean((x-median(x))**2)/mean(added_noise**2))`, using the complete captured waveform including existing background, not isolated PD power. Demeaned Gaussian noise is rescaled per record/channel. Seed2026 is hashed with record identity and channel. CH2 is never corrupted. The same standardized noise is used across SNRs for a channel, and identical noisy image bytes are shared between single-channel and both-channel conditions. Unaffected images are copied from clean inputs.
 
-### Test results and limits
+Validation: six fusion-study models × (clean + 18 noise)=114 rows, n=157. Test: twelve frozen models × (clean + 18 noise)=228 rows, n=158. Test evaluation requires the exact clean-test checkpoint hashes, reproduces clean predictions, and checks unaffected single-sensor predictions. White images stay in the evaluation. No optimizer or checkpoint selection is used during interference evaluation.
 
-Clean test accuracy: UHF 98.74%, HFCT 98.74%, concat 98.11%, equal 100.00%, GFM 98.74%, GFM without confidence 98.74%.
+`comparison.csv`, `main_table.csv` and `ablation_table.csv` report clean comparisons. `all_test_results.csv`, `main_table_by_snr.csv`, `fusion_ablation_by_snr.csv` and `image_quality.csv` report fixed interference results. Accuracy, mean Recall and mean F1 are fractions in CSV files; multiply by 100 for percentages. Mean Recall/F1 are class-equal (macro) averages.
 
-| UHF-only noise | Concat | Equal | GFM without confidence | GFM |
-|---|---:|---:|---:|---:|
-| −15 dB | 52.20 | 52.83 | 57.23 | **70.44** |
-| −10 dB | 46.54 | 51.57 | 57.23 | **65.41** |
-| −5 dB | 46.54 | 63.52 | 51.57 | **65.41** |
+## Code and result provenance
 
-Accuracy (%), transcribed from the author's completed server output. This table displays selected UHF-only test conditions, not the complete set of measured conditions. The advantage is conditional on UHF-only pollution in these tested conditions; neither consistent HFCT-only/both-channel gains nor repeated-seed superiority is established. The repository does not include private prediction files or independently re-verify the reported numbers.
+See [reported test results](docs/RESULTS.md) and [source provenance](SOURCE_PROVENANCE.json). This release removes superseded tile/region/temporal/reliability/attention and percentage-noise entry points. It preserves the active model parameter names and numerical PRPD helpers; the current representation uses a single full view.
 
-### Code map
-
-| File | Role |
-|---|---|
-| `revision_data.py` | Shared record audit, tile fitting/rendering and waveform AWGN; also contains region exploration |
-| `revision_train.py` | `Encoder`, `FusionNet`, `Paired`, tile training and record aggregation |
-| `scripts/evaluate_tile_test.py` | Fixed-checkpoint test evaluation, separate output, no training |
-| `generate_prpd_wfm.py` | Imported legacy helpers; standalone whole-image entry point is a different preprocessing path |
-| `mso44_wfm.py`, `mso44_csv.py` | Raw waveform adapters |
-| `recovered_models.py` | Historical concat/equal/Swin baselines, not the paper's six-model table |
-| `revision_reliability.py` | Exploratory frozen **region** experts and 1038→64→2 gates; not the paper's 1026→128→2 gate |
-| `revision_temporal.py` | Exploratory sliding-window planning/pilot; not part of the paper protocol |
-| `scripts/render_validation_noise.sh` | Region validation rendering, not paper tile test rendering |
-| `scripts/run_split3407_seed_study.sh` | Separate region/split-3407 study, not required here |
-| `scripts/sync_from_server.py` | Allowlisted source synchronization; does not establish result validity |
-
-SVM and a standalone CNN baseline are not implemented in these published experiment scripts. Do not describe their settings as verified by this code.
-
-The author-verified original Swin-T, ResNet50, concatenation and equal-fusion sources are documented in [the baseline audit](docs/BASELINES.md). Optional methods `swin_uhf`, `swin_hfct`, `recovered_concat` and `recovered_equal` already share the training entry point and are now accepted by the test evaluator when matching checkpoints exist. This interface update does not add completed experiments or change the default six-model paper protocol.
+Use a **fresh checkout and fresh output directories** for this release. Do not overwrite an archived server environment or edit a trained manifest to bypass a hash check. Refactoring changes module byte hashes even when retained numerical functions are identical; old interrupted jobs require their original code snapshot. The private server source files/manifests/checkpoints have not been fetched by this assistant; server executions and scores are author-reported, while local regression checks use synthetic inputs.
