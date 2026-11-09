@@ -14,7 +14,7 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 | Swin-T | UHF | 97.47 | 97.53 | 97.47 |
 | SVM | HFCT | 79.11 | 79.44 | 76.54 |
 | CNN | HFCT | 96.20 | 96.31 | 96.30 |
-| ResNet50 | HFCT | 97.47 |97.47 | 97.47 |
+| ResNet50 | HFCT | 97.47 |97.53 | 97.47 |
 | Swin-T | HFCT | 96.84 | 96.94 | 96.91 |
 
 ## Table 4. Classification accuracy under AWGN (%)
