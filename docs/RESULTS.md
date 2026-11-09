@@ -26,10 +26,10 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 | UHF only | +5 | 94.30 | 95.57 | 96.84 | 96.20 |
 | HFCT only | -5 | 89.87 | 97.47 | 97.47 | 71.52 |
 | HFCT only | 0 | 96.84 | 97.47 | 97.47 | 90.51 |
-| HFCT only | +5 | 96.84 | 97.47 | 96.84 | 93.67 |
+| HFCT only | +5 | 96.84 | 96.84 | 96.84 | 93.67 |
 | Both channels | -5 | 91.14 | 50.63 | 97.47 | 71.52 |
-| Both channels | 0 | 97.47 | 68.99 | 96.84 | 90.51 |
-| Both channels | +5 | 98.10 | 96.84 | 96.20 | 93.67 |
+| Both channels | 0 | 94.30 | 68.99 | 96.84 | 90.51 |
+| Both channels | +5 |94.30 | 96.84 | 96.20 | 93.67 |
 
 ## Table 5. Dual-channel fusion ablation on the clean test set
 
@@ -46,8 +46,8 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 |---|---:|---:|---:|---:|---:|
 | UHF only | -5 | 91.77 | 96.20 | 97.47 | 96.20 |
 | UHF only | 0 | 94.30 | 77.22 | 97.47 | 96.20 |
-| UHF only | +5 | 98.10 | 95.57 | 97.47 | 96.20 |
-| HFCT only | -5 | 96.84 | 94.94 | 94.30 | 80.38 |
+| UHF only | +5 | 96.84 | 95.57 | 97.47 | 96.20 |
+| HFCT only | -5 | 94.30 | 94.94 | 94.30 | 80.38 |
 | HFCT only | 0 | 91.77 | 96.84 | 91.77 | 81.01 |
 | HFCT only | +5 | 90.51 | 97.47 | 97.47 | 74.05 |
 | Both channels | -5 | 89.87 | 92.41 | 94.30 | 75.32 |
