@@ -29,7 +29,7 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 | HFCT only | +5 | 96.84 | 96.84 | 96.84 | 93.67 |
 | Both channels | -5 | 91.14 | 50.63 | 97.47 | 71.52 |
 | Both channels | 0 | 94.30 | 68.99 | 96.84 | 90.51 |
-| Both channels | +5 |94.30 | 96.84 | 96.20 | 93.67 |
+| Both channels | +5 |94.30 | 96.20 | 96.84 | 93.67 |
 
 ## Table 5. Dual-channel fusion ablation on the clean test set
 
@@ -52,4 +52,4 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 | HFCT only | +5 | 90.51 | 97.47 | 97.47 | 74.05 |
 | Both channels | -5 | 89.87 | 92.41 | 94.30 | 75.32 |
 | Both channels | 0 | 85.44 | 77.22 | 91.77 | 80.38 |
-| Both channels | +5 | 91.14 | 95.57 | 94.94 | 74.05 |
+| Both channels | +5 | 91.14 | 92.41 | 94.94 | 74.05 |
