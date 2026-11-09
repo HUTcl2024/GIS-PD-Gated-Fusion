@@ -1,3 +1,50 @@
+# Session grouped unseen voltage evaluation
+
+The default full360 workflow requires a session-grouped manifest. Provide session_id
+from acquisition logs, using globally unique IDs across the experiment. A session
+may include multiple captures, classes, or voltages. Do not infer sessions from
+record IDs or voltage values.
+
+Create a CSV with exactly one row for every original record and columns
+record_id,session_id,voltage_kv. Voltages must match the source manifest.
+Create a JSON config containing holdout_voltages_kv (every class mapped to a
+nonempty list of kV values) and validation_session_ids (explicit whole sessions).
+Fix both choices before reviewing test outcomes.
+
+    python session_split.py --manifest original_manifest.json --metadata sessions.csv --config holdout.json --output grouped_manifest.json
+    python scripts/prepare_full360.py --manifest grouped_manifest.json --raw-data "$RAW_DATA" --output "$DATA"
+
+A session containing any held-out voltage is assigned entirely to test. Every
+voltage in test must be absent from train and validation within its defect class.
+Mixed-voltage sessions that violate this condition cause an error. Validation
+sessions are explicitly configured; all remaining sessions are training.
+The split uses no random record assignment or forced sample-count ratio.
+Every subset must contain every class. The output manifest includes source hashes,
+session IDs, normalized voltage values, split counts and per-class coverage.
+
+Normal preprocessing, training, clean evaluation, AWGN evaluation and Gaussian pulse
+evaluation entry points validate session isolation and voltage isolation. Counts
+follow the actual groups. Each original capture contributes one pair of complete
+224x224 UHF/HFCT images and one prediction. Existing scripts compute record-level
+accuracy, macro recall and macro F1. Train-only axis fitting, PCA and scaling remain
+in place. Model selection uses validation macro F1. Test remains held out.
+
+Use fresh data and run directories with the commands below after replacing their
+input manifest by grouped_manifest.json. Old random-split checkpoints and metrics
+do not establish results for this protocol. Verified session metadata and a new
+training/evaluation run are still required. No new experimental metrics are
+included here.
+
+Run the split regression checks with:
+
+    python -m unittest discover -s tests -p test_session_split.py -v
+
+## Archived random split experiment
+
+The remainder describes archived experiments and their provenance. Their record
+counts and random-split preparation do not define the new grouped workflow.
+
+
 # Dual-Channel Gated Fusion for GIS Partial Discharge Identification
 
 UHF/HFCT raw waveforms → corrected CH2 phase → complete 360° PRPD images → ResNet50 confidence-gated logit fusion.
@@ -99,3 +146,4 @@ The frozen test extension is `scripts/gaussian_pulse_fixed_test.py`. It keeps th
 Pass `--pulse-fwhm-us 1 --pulse-rate-hz 1000` explicitly. Other required arguments are `--data`, `--raw-data`, `--clean-source` (the completed twelve-model clean-test directory), `--val-noise-source` (the original AWGN validation protocol, for fixed axes/settings) and a fresh `--output`. New images use `test_gaussian_pulse_*`, leaving AWGN scenarios unchanged. Expected output is228 rows including repeated clean controls; no accuracy is reported before server execution.
 
 For archived server experiments, copy **only this self-contained new script** next to the original `revision_train.py`, `revision_data.py` and `generate_prpd_wfm.py` (for example under /home/aa/cl-2). Do not replace those archived modules: their recorded byte hashes remain required. The script also runs from scripts/ in a fresh current checkout.
+

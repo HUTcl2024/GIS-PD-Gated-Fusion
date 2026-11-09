@@ -20,6 +20,7 @@ from torchvision import transforms,models
 from PIL import Image
 from sklearn.metrics import accuracy_score,balanced_accuracy_score,classification_report,confusion_matrix,f1_score
 from revision_data import ROOT,dump,image_paths
+from session_split import validate_grouped_manifest
 METHODS=['uhf','hfct','concat','equal','gfm','gfm_no_conf']
 AUX_METHODS={'concat','equal','gfm','gfm_no_conf'}
 
@@ -99,6 +100,7 @@ class Paired(Dataset):
     def __init__(self,manifest,root,split,scenario='clean',limit=None):
         if manifest.get('representation')!='whole_record_prpd' or any('parent_record_id' in r for r in manifest['records']):
             raise ValueError('Only complete360 original-record inputs are supported')
+        validate_grouped_manifest(manifest)
         self.records=[r for r in manifest['records'] if r['split']==split]
         if limit:
             self.records=[r for c in manifest['classes'] for r in [r for r in self.records if r['class_name']==c][:limit]]
@@ -182,8 +184,7 @@ def summarize(output,results):
 def main(args):
     raw=(args.data/'manifest.json').read_bytes();m=json.loads(raw)
     if args.output.exists():raise FileExistsError('Use a fresh output directory')
-    if len(m['records'])!=786 or len({r['group_id'] for r in m['records']})!=786:raise ValueError('Expected786 unique original records')
-    if dict(Counter(r['split'] for r in m['records']))!={'train':471,'val':157,'test':158}:raise ValueError('Unexpected split')
+    split_counts=validate_grouped_manifest(m)
     if m['preprocessing'].get('amplitude_normalization') is not False:raise ValueError('Expected raw-voltage PRPD')
     device=torch.device(args.device)
     if args.device=='cuda' and not torch.cuda.is_available():raise RuntimeError('CUDA unavailable')
@@ -222,7 +223,7 @@ def main(args):
                 if val['macro_f1']>best:
                     best=val['macro_f1'];best_state=copy.deepcopy(model.state_dict());best_epoch=epoch
                 scheduler.step()
-                print(f'{method} seed={seed} epoch={epoch} val_f1={val["macro_f1"]:.4f} records=157 elapsed={time.perf_counter()-start:.1f}s',flush=True)
+                print(f'{method} seed={seed} epoch={epoch} val_f1={val["macro_f1"]:.4f} records={len(datasets["val"])} elapsed={time.perf_counter()-start:.1f}s',flush=True)
             model.load_state_dict(best_state)
             torch.save(dict(state_dict=best_state,method=method,backbone='resnet50',feat_dim=512,classes=m['classes'],
                 seed=seed,best_epoch=best_epoch,aux_weight=0.,validation_only=True,selection_unit='record'),folder/'best.pt')
@@ -250,3 +251,4 @@ if __name__=='__main__':
     args=p.parse_args()
     if args.epochs<1 or args.batch_size<1:p.error('Positive epochs/batch size required')
     main(args)
+

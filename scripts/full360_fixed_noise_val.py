@@ -1,4 +1,4 @@
-"""Frozen whole-PRPD models, 157 val parents, 18 fixed raw-AWGN scenarios.
+"""Frozen whole-PRPD models, session-grouped validation records, 18 fixed raw-AWGN scenarios.
 
 No training, selection, amplitude normalization, test-image access or manifest
 rewrites. Preserve exact clean images for unaffected channels. Both/single use
@@ -19,6 +19,7 @@ sys.path.insert(0,str(ROOT))
 import numpy as np
 from PIL import Image
 import generate_prpd_wfm as g
+from session_split import validate_grouped_manifest
 from revision_data import read_parent_record,add_awgn_snr,image_paths
 
 METHODS=['uhf','hfct','concat','equal','gfm','gfm_no_conf']
@@ -48,7 +49,7 @@ def prepare(args,m,parents,axes,scenarios):
         quality_paths=[args.data/'images'/sc/'quality'/(r['record_id']+'.json') for sc in scenarios]
         if args.resume and all(q.is_file() for q in quality_paths) and all(
             p.is_file() for sc in scenarios for p in image_paths(args.data,sc,r)):
-            print(f'Noise [{i}/157] already complete: {r["record_id"]}',flush=True);continue
+            print(f'Noise [{i}/{len(parents)}] already complete: {r["record_id"]}',flush=True);continue
         waves=read_parent_record(args.raw_data,r)
         phase,_=g.legacy_compute_phase_from_ch2(waves['phase_ref'].values(),r['sample_rate_hz'],smooth_win=21)
         clean_stats={}
@@ -85,7 +86,7 @@ def prepare(args,m,parents,axes,scenarios):
                     details[role]=dict(noisy_stats[role] if corrupted else clean_stats[role],corrupted=corrupted)
                 dump(args.data/'images'/sc/'quality'/(r['record_id']+'.json'),
                     dict(record_id=r['record_id'],split='val',scenario=sc,channels=details))
-        print(f'Noise [{i}/157] {r["record_id"]}: all 18 fixed scenarios complete',flush=True)
+        print(f'Noise [{i}/{len(parents)}] {r["record_id"]}: all 18 fixed scenarios complete',flush=True)
         del waves,phase
 
 
@@ -96,8 +97,7 @@ def main(args):
     pp=m['preprocessing']
     if pp.get('amplitude_normalization') is not False or pp.get('amplitude_clipping') is not False:raise ValueError('Expected raw volts without amplitude mapping')
     if pp.get('y_axis_fit_split')!='train':raise ValueError('Axes must be TRAIN-fitted')
-    if dict(Counter(r['split'] for r in m['records']))!={'train':471,'val':157,'test':158}:raise ValueError('Split counts changed')
-    if len({r['record_id'] for r in m['records']})!=786 or len({r['group_id'] for r in m['records']})!=786:raise ValueError('Duplicate records/groups')
+    split_counts=validate_grouped_manifest(m)
     if 'armed' not in inspect.getsource(g.legacy_compute_phase_from_ch2):raise ValueError('Corrected CH2 entry missing')
     expected=m.get('amplitude_revision',{}).get('phase_code_sha256')
     if expected!=digest(Path(g.__file__)):raise ValueError('Phase/detector/renderer code changed since image generation')
@@ -112,7 +112,7 @@ def main(args):
     tracked=[Path(__file__),ROOT/'revision_data.py',ROOT/'revision_train.py',ROOT/'generate_prpd_wfm.py',ROOT/'mso44_wfm.py',ROOT/'mso44_csv.py']
     settings=dict(source_manifest_sha256=hashlib.sha256(raw).hexdigest(),checkpoint_sha256=checkpoint_hashes,
         code_sha256={p.name:digest(p) for p in tracked},source=str(args.source),data=str(args.data),raw_data=str(args.raw_data),
-        seed=3407,noise_seed=2026,snr_db=SNRS,targets=TARGETS,records=157,evaluation_split='val',
+        seed=3407,noise_seed=2026,snr_db=SNRS,targets=TARGETS,records=split_counts['val'],evaluation_split='val',
         y_axis_max_v=axes,amplitude_normalization=False,metric_unit='original_record',batch_size=32,
         snr_definition='10log10(mean((clean-median(clean))**2)/mean(added_noise**2)); entire captured waveform including existing background',
         pairing='Same standardized Gaussian realization per parent/channel across SNRs; both/single copies identical noisy images; CH2 never corrupted',
@@ -161,7 +161,7 @@ def main(args):
         model.load_state_dict(checkpoint['state_dict']);model.requires_grad_(False);model.eval()
         for sc in ['clean']+scenarios:
             metrics=evaluate(model,DataLoader(Paired(m,args.data,'val',sc),batch_size=32,shuffle=False),device,m['classes'],diagnostics=method in AUX_METHODS)
-            if metrics['n']!=157:raise ValueError('Unexpected evaluation count')
+            if metrics['n']!=split_counts['val']:raise ValueError('Unexpected evaluation count')
             metrics.update(evaluation_split='val',metric_unit='original_record',selection_used_this_set=False)
             if sc=='clean':
                 old=json.loads((args.source/f'{method}_seed3407'/'val_clean.json').read_text())
@@ -174,7 +174,7 @@ def main(args):
             results.append(dict(method=method,seed=3407,scenario=sc,evaluation_split='val',metric_unit='original_record',
                 **{k:metrics[k] for k in ['n','correct','accuracy','macro_f1','balanced_accuracy']},macro_precision=metrics['report']['macro avg']['precision']))
             dump(args.output/'results.json',results)
-            print(f'{method} seed=3407 {sc} n=157 acc={metrics["accuracy"]:.4f} f1={metrics["macro_f1"]:.4f}',flush=True)
+            print(f'{method} seed=3407 {sc} n={split_counts["val"]} acc={metrics["accuracy"]:.4f} f1={metrics["macro_f1"]:.4f}',flush=True)
         del model,checkpoint;torch.cuda.empty_cache()
     if len(results)!=114:raise ValueError('Expected 114 results')
     if any(digest(p)!=checkpoint_hashes[method] for method,p in checkpoints.items()) or (args.data/'manifest.json').read_bytes()!=raw:
@@ -182,7 +182,7 @@ def main(args):
     summarize(args.output,results)
     with (args.output/'results.csv').open('w',encoding='utf-8-sig',newline='') as f:
         w=csv.DictWriter(f,fieldnames=list(results[0]));w.writeheader();w.writerows(results)
-    print('DONE: 114 frozen-model validation results; 18 noise scenarios + clean; all n=157. Checkpoint hashes unchanged.',flush=True)
+    print('DONE: 114 frozen-model validation results; 18 noise scenarios + clean; all record counts audited. Checkpoint hashes unchanged.',flush=True)
 
 
 if __name__=='__main__':
@@ -191,3 +191,4 @@ if __name__=='__main__':
     p.add_argument('--source',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
     p.add_argument('--resume',action='store_true')
     main(p.parse_args())
+

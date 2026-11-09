@@ -1,4 +1,4 @@
-"""Frozen 12-model test: 158 original records, clean + 18 prespecified AWGN cases.
+"""Frozen 12-model test: session-grouped original records, clean + 18 prespecified AWGN cases.
 
 Use the exact checkpoints already used for clean test. No training/selection,
 normalization, axis refit or changes to clean images/manifest/checkpoints.
@@ -20,6 +20,7 @@ import torch
 import joblib
 from torch.utils.data import DataLoader
 import generate_prpd_wfm as g
+from session_split import validate_grouped_manifest
 from revision_data import read_parent_record,add_awgn_snr,image_paths
 from full360_fixed_noise_val import digest,dump,image_stats,peak_stats
 from evaluate_rawvolts_clean_test import Paired,build_model,evaluate,AUX_METHODS,SensorCNN,metrics,load_features
@@ -51,7 +52,7 @@ def prepare(args,parents,axes,scenarios):
     for i,r in enumerate(parents,1):
         quality_paths=[args.data/'images'/sc/'quality'/(r['record_id']+'.json') for sc in scenarios]
         if args.resume and all(q.is_file() for q in quality_paths) and all(p.is_file() for sc in scenarios for p in image_paths(args.data,sc,r)):
-            print(f'Noise TEST [{i}/158] already complete: {r["record_id"]}',flush=True);continue
+            print(f'Noise TEST [{i}/{len(parents)}] already complete: {r["record_id"]}',flush=True);continue
         waves=read_parent_record(args.raw_data,r)
         if not np.isclose(waves['phase_ref'].info.sample_rate_hz,r['sample_rate_hz'],rtol=1e-10,atol=0):raise ValueError('CH2 sampling rate mismatch')
         phase,_=g.legacy_compute_phase_from_ch2(waves['phase_ref'].values(),r['sample_rate_hz'],smooth_win=21)
@@ -84,7 +85,7 @@ def prepare(args,parents,axes,scenarios):
                         shutil.copyfile(image_paths(args.data,'clean',r)[index],destination)
                     details[role]=dict(noisy_stats[role] if corrupted else clean_stats[role],corrupted=corrupted)
                 dump(args.data/'images'/sc/'quality'/(r['record_id']+'.json'),dict(record_id=r['record_id'],split='test',scenario=sc,channels=details))
-        print(f'Noise TEST [{i}/158] {r["record_id"]}: all 18 scenarios complete',flush=True)
+        print(f'Noise TEST [{i}/{len(parents)}] {r["record_id"]}: all 18 scenarios complete',flush=True)
         del waves,phase
 
 
@@ -93,8 +94,7 @@ def main(args):
     clean_protocol=json.loads((args.clean_source/'protocol.json').read_text());val_protocol=json.loads((args.val_noise_source/'protocol.json').read_text())
     if clean_protocol['manifest_sha256']!=manifest_hash or val_protocol['source_manifest_sha256']!=manifest_hash:raise ValueError('Manifest differs from frozen clean/validation studies')
     if m.get('representation')!='whole_record_prpd' or any('parent_record_id' in r for r in m['records']):raise ValueError('Expected full360 original records')
-    if len({r['record_id'] for r in m['records']})!=786 or len({r['group_id'] for r in m['records']})!=786:raise ValueError('Duplicate records/groups')
-    if dict(Counter(r['split'] for r in m['records']))!={'train':471,'val':157,'test':158}:raise ValueError('Split mismatch')
+    split_counts=validate_grouped_manifest(m)
     pp=m['preprocessing'];axes=pp['y_axis_max_v']
     if pp.get('amplitude_normalization') is not False or pp.get('amplitude_clipping') is not False or pp.get('y_axis_fit_split')!='train':raise ValueError('Expected raw volts and frozen TRAIN axes')
     if any(not np.isfinite(axes[k]) or axes[k]<=0 for k in ['uhf','hfct']):raise ValueError('Invalid axes')
@@ -115,7 +115,7 @@ def main(args):
         Path(__file__).with_name('rawvolts_single_baselines.py'),Path(__file__).with_name('baseline_features.py'),ROOT/'recovered_models.py',ROOT/'mso44_wfm.py',ROOT/'mso44_csv.py']
     settings=dict(manifest_sha256=manifest_hash,checkpoint_sha256=hashes,clean_protocol_sha256=digest(args.clean_source/'protocol.json'),
         code_sha256={p.name:digest(p) for p in tracked},data=str(args.data),raw_data=str(args.raw_data),clean_source=str(args.clean_source),
-        val_noise_source=str(args.val_noise_source),evaluation_split='test',n=158,seed=3407,noise_seed=2026,snr_db=SNRS,targets=TARGETS,
+        val_noise_source=str(args.val_noise_source),evaluation_split='test',n=split_counts['test'],seed=3407,noise_seed=2026,snr_db=SNRS,targets=TARGETS,
         y_axis_max_v=axes,selection='Exact clean-test checkpoints; no training, selection or axis refit',
         snr_definition=val_protocol['snr_definition'],pairing=val_protocol['pairing'],metric_averaging='Class-equal mean Recall/F1 (macro)')
     info=args.output/'protocol.json'
@@ -165,7 +165,7 @@ def main(args):
                 # Same 64px grayscale/PCA/scaler as fitted on train; no refitting.
                 # Loader helper is clean-only, so read the requested scenario explicitly.
                 from PIL import Image
-                x=np.empty((158,64*64),dtype=np.float32);truth=[]
+                x=np.empty((split_counts['test'],64*64),dtype=np.float32);truth=[]
                 for k,r in enumerate(dataset.records):
                     p=image_paths(args.data,sc,r)[0 if role=='uhf' else 1]
                     with Image.open(p) as im:x[k]=np.asarray(im.convert('L').resize((64,64),Image.Resampling.BILINEAR),dtype=np.float32).reshape(-1)/255.
@@ -175,7 +175,7 @@ def main(args):
             else:
                 d=evaluate(model,DataLoader(dataset,batch_size=32,shuffle=False),device,m['classes'],diagnostics=method in AUX_METHODS)
             result=metrics(d['predictions'],m['classes'])
-            if result['n']!=158:raise ValueError('Unexpected evaluation count')
+            if result['n']!=split_counts['test']:raise ValueError('Unexpected evaluation count')
             pred={p['record_id']:(p['true'],p['pred']) for p in result['predictions']}
             if sc=='clean':
                 golden=json.loads((args.clean_source/plan['key']/'test_clean.json').read_text())
@@ -188,10 +188,10 @@ def main(args):
             for k in ['branch_accuracy','gate']:
                 if k in d:result[k]=d[k]
             dump(args.output/plan['key']/f'test_{sc}.json',result)
-            rows.append(dict(method=method,modality=role,scenario=sc,seed=3407,n=158,evaluation_split='test',
+            rows.append(dict(method=method,modality=role,scenario=sc,seed=3407,n=split_counts['test'],evaluation_split='test',
                 **{k:result[k] for k in ['accuracy','recall_mean','f1_mean']}))
             dump(args.output/'results.json',rows)
-            print(f'TEST {plan["key"]} {sc}: n=158 Acc={100*result["accuracy"]:.2f} Recall={100*result["recall_mean"]:.2f} F1={100*result["f1_mean"]:.2f}',flush=True)
+            print(f'TEST {plan["key"]} {sc}: n={split_counts["test"]} Acc={100*result["accuracy"]:.2f} Recall={100*result["recall_mean"]:.2f} F1={100*result["f1_mean"]:.2f}',flush=True)
         if method=='svm':del bundle
         else:del model,c;torch.cuda.empty_cache()
     if len(rows)!=228 or any(digest(Path(p))!=h for p,h in hashes.items()) or (args.data/'manifest.json').read_bytes()!=raw:
@@ -199,7 +199,7 @@ def main(args):
     csv_save(args.output/'all_test_results.csv',rows)
     csv_save(args.output/'main_table_by_snr.csv',[r for r in rows if r['modality']!='dual' or r['method']=='gfm'])
     csv_save(args.output/'fusion_ablation_by_snr.csv',[r for r in rows if r['modality']=='dual'])
-    print('DONE: 228 frozen TEST results; 12 models x (clean +18 noise), all n=158. Clean predictions reproduced; checkpoint hashes unchanged; no training.',flush=True)
+    print('DONE: 228 frozen TEST results; 12 models x (clean +18 noise), all record counts audited. Clean predictions reproduced; checkpoint hashes unchanged; no training.',flush=True)
 
 
 if __name__=='__main__':
@@ -207,3 +207,4 @@ if __name__=='__main__':
     for name in ['data','raw-data','clean-source','val-noise-source','output']:p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--resume',action='store_true')
     main(p.parse_args())
+

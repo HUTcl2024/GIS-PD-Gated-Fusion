@@ -1,4 +1,4 @@
-"""Fixed clean test evaluation, 158 records; no training or model selection.
+"""Fixed clean test evaluation, session-grouped records; no training or model selection.
 
 Eight single-sensor baselines + four dual-sensor fusion variants. Sources fixed
 before evaluating: original six ResNet models, CNN/SVM study, low-LR Swin retry.
@@ -16,6 +16,7 @@ sys.path.insert(0,str(ROOT));sys.path.insert(0,str(Path(__file__).resolve().pare
 import torch
 import joblib
 from torch.utils.data import DataLoader
+from session_split import validate_grouped_manifest
 from revision_train import Paired,build_model,evaluate,AUX_METHODS
 from rawvolts_single_baselines import SensorCNN,metrics
 from baseline_features import load_features
@@ -35,8 +36,7 @@ def main(args):
     if args.output.exists():raise FileExistsError('Use a fresh output directory; no overwrite/resume')
     if m.get('representation')!='whole_record_prpd' or m['preprocessing'].get('amplitude_normalization') is not False:
         raise ValueError('Expected complete raw-voltage PRPD')
-    if len({r['record_id'] for r in m['records']})!=786 or len({r['group_id'] for r in m['records']})!=786:raise ValueError('Duplicate record/group IDs')
-    if dict(Counter(r['split'] for r in m['records']))!={'train':471,'val':157,'test':158}:raise ValueError('Unexpected split')
+    split_counts=validate_grouped_manifest(m)
     for folder in [args.fusion_source,args.baseline_source,args.swin_source]:
         protocol=json.loads((folder/'protocol.json').read_text())
         if protocol['manifest_sha256']!=manifest_hash:raise ValueError('Source manifest mismatch: '+str(folder))
@@ -51,13 +51,13 @@ def main(args):
         plans.append(dict(key=method,method=method,modality='dual',path=args.fusion_source/f'{method}_seed3407'/'best.pt'))
     hashes={str(p['path']):digest(p['path']) for p in plans}
     dataset=Paired(m,args.data,'test');loader=DataLoader(dataset,batch_size=32,shuffle=False)
-    if len(dataset)!=158:raise ValueError('Expected 158 test records')
+    if len(dataset)!=split_counts['test']:raise ValueError('Unexpected test record count')
     if not torch.cuda.is_available():raise RuntimeError('CUDA unavailable; no test inference started')
     torch.set_num_threads(4);device=torch.device('cuda')
     args.output.mkdir(parents=True,exist_ok=False)
     save(args.output/'protocol.json',dict(manifest_sha256=manifest_hash,
         arguments={k:str(v) for k,v in vars(args).items()},source_checkpoint_sha256=hashes,
-        script_sha256=digest(Path(__file__)),evaluation_split='test',n=158,seed=3407,
+        script_sha256=digest(Path(__file__)),evaluation_split='test',n=split_counts['test'],seed=3407,
         selection='Fixed source best checkpoints, selected on clean val; Swin retry lr1e-5; no training/test-driven selection',
         averaging='Recall and F1 are unweighted class means (macro); pixel preprocessing unchanged'))
     rows=[]
@@ -88,24 +88,25 @@ def main(args):
             d['selected_epoch']=c['best_epoch']
             del model,c;torch.cuda.empty_cache()
         result=metrics(d['predictions'],m['classes'])
-        if result['n']!=158:raise ValueError('Unexpected test prediction count')
+        if result['n']!=split_counts['test']:raise ValueError('Unexpected test prediction count')
         result.update(evaluation_split='test',metric_unit='original_record',checkpoint_sha256=hashes[str(path)])
         for key in ['branch_accuracy','gate','selected_epoch']:
             if key in d:result[key]=d[key]
         save(args.output/plan['key']/'test_clean.json',result)
-        row=dict(method=method,modality=role,n=158,evaluation_split='test',
+        row=dict(method=method,modality=role,n=split_counts['test'],evaluation_split='test',
             **{k:result[k] for k in ['accuracy','recall_mean','f1_mean']})
         rows.append(row);save(args.output/'results.json',rows)
-        print(f'TEST {method}/{role}: n=158 Acc={100*row["accuracy"]:.2f} Recall(mean)={100*row["recall_mean"]:.2f} F1(mean)={100*row["f1_mean"]:.2f}',flush=True)
+        print(f'TEST {method}/{role}: n={split_counts["test"]} Acc={100*row["accuracy"]:.2f} Recall(mean)={100*row["recall_mean"]:.2f} F1(mean)={100*row["f1_mean"]:.2f}',flush=True)
     if len(rows)!=12 or any(digest(Path(p))!=h for p,h in hashes.items()) or (args.data/'manifest.json').read_bytes()!=raw:
         raise ValueError('Source files changed or incomplete results')
     main_table=[r for r in rows if r['modality']!='dual' or r['method']=='gfm']
     ablation=[r for r in rows if r['modality']=='dual']
     csv_save(args.output/'all_clean_test.csv',rows);csv_save(args.output/'main_table.csv',main_table);csv_save(args.output/'ablation_table.csv',ablation)
-    print('DONE: 12 clean TEST results, all n=158; main table9 rows, ablation4 rows. Checkpoints unchanged; no training.',flush=True)
+    print('DONE: 12 clean TEST results, all record counts audited; main table9 rows, ablation4 rows. Checkpoints unchanged; no training.',flush=True)
 
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ['data','fusion-source','baseline-source','swin-source','output']:p.add_argument('--'+name,type=Path,required=True)
     main(p.parse_args())
+

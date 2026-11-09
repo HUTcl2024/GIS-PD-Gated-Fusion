@@ -25,6 +25,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score,recall_score,f1_score,classification_report
 import joblib
+from session_split import validate_grouped_manifest
 from revision_train import Paired,CNNEncoder,evaluate,build_model
 from baseline_features import load_features
 
@@ -59,8 +60,7 @@ def main(args):
     path=args.data/'manifest.json';raw=path.read_bytes();m=json.loads(raw)
     if args.output.exists():raise FileExistsError('Use a fresh output directory')
     if m.get('representation')!='whole_record_prpd' or any('parent_record_id' in r for r in m['records']):raise ValueError('Expected whole-record data')
-    if len({r['record_id'] for r in m['records']})!=786 or len({r['group_id'] for r in m['records']})!=786:raise ValueError('Expected 786 unique groups')
-    if dict(Counter(r['split'] for r in m['records']))!={'train':471,'val':157,'test':158}:raise ValueError('Unexpected split counts')
+    split_counts=validate_grouped_manifest(m)
     if m['preprocessing'].get('amplitude_normalization') is not False:raise ValueError('Expected raw-voltage images')
     protocol=json.loads((args.source/'protocol.json').read_text())
     if protocol['manifest_sha256']!=hashlib.sha256(raw).hexdigest():raise ValueError('Existing model manifest mismatch')
@@ -83,13 +83,13 @@ def main(args):
     table=[]
     def record(method,role,d):
         result=metrics(d['predictions'],m['classes'])
-        if result['n']!=157:raise ValueError('Expected 157 val records')
+        if result['n']!=split_counts['val']:raise ValueError('Unexpected validation record count')
         save(args.output/f'{method}_{role}'/'val_clean.json',result)
-        table.append(dict(method=method,modality=role,evaluation_split='val',n=157,seed=args.seed,
+        table.append(dict(method=method,modality=role,evaluation_split='val',n=split_counts['val'],seed=args.seed,
             **{k:result[k] for k in ['accuracy','recall_mean','f1_mean']}))
         with (args.output/'comparison.csv').open('w',encoding='utf-8-sig',newline='') as f:
             writer=csv.DictWriter(f,fieldnames=list(table[0]));writer.writeheader();writer.writerows(table)
-        print(f'VAL {method}/{role}: n=157 Acc={100*result["accuracy"]:.2f} Recall(mean)={100*result["recall_mean"]:.2f} F1(mean)={100*result["f1_mean"]:.2f}',flush=True)
+        print(f'VAL {method}/{role}: n={split_counts["val"]} Acc={100*result["accuracy"]:.2f} Recall(mean)={100*result["recall_mean"]:.2f} F1(mean)={100*result["f1_mean"]:.2f}',flush=True)
     for method,role in [('uhf','uhf'),('hfct','hfct'),('gfm','dual')]:
         record('resnet50' if method!='gfm' else 'gfm',role,json.loads(origins[method].read_text()))
     train=[r for r in m['records'] if r['split']=='train'];val=[r for r in m['records'] if r['split']=='val']
@@ -133,7 +133,7 @@ def main(args):
                         method=name,modality=role,classes=m['classes'],seed=args.seed,best_epoch=epoch,
                         manifest_sha256=hashlib.sha256(raw).hexdigest()),folder/'best.pt')
                 scheduler.step()
-                print(f'{name}/{role} epoch={epoch} VAL n=157 Acc={100*v["accuracy"]:.2f} Recall(mean)={100*v["recall_mean"]:.2f} F1(mean)={100*v["f1_mean"]:.2f}',flush=True)
+                print(f'{name}/{role} epoch={epoch} VAL n={split_counts["val"]} Acc={100*v["accuracy"]:.2f} Recall(mean)={100*v["recall_mean"]:.2f} F1(mean)={100*v["f1_mean"]:.2f}',flush=True)
             record(name,role,json.loads((folder/'best_val.json').read_text()))
             del model,optimizer,scheduler;torch.cuda.empty_cache()
     if len(table)!=9:raise ValueError('Expected eight single-sensor baselines plus dual GFM')
@@ -149,7 +149,7 @@ def main(args):
                 **{k:v[k] for k in ['accuracy','recall_mean','f1_mean']}))
         with (args.output/'existing_noise_ARF1.csv').open('w',encoding='utf-8-sig',newline='') as f:
             writer=csv.DictWriter(f,fieldnames=list(converted[0]));writer.writeheader();writer.writerows(converted)
-    print('DONE: 9 clean validation rows (8 single-channel baselines + dual GFM), all n=157; no test images.',flush=True)
+    print('DONE: 9 clean validation rows (8 single-channel baselines + dual GFM), all record counts audited; no test images.',flush=True)
 
 
 if __name__=='__main__':
@@ -158,3 +158,4 @@ if __name__=='__main__':
     p.add_argument('--output',type=Path,required=True);p.add_argument('--noise-results',type=Path)
     p.add_argument('--seed',type=int,choices=[3407],default=3407);p.add_argument('--epochs',type=int,default=30)
     main(p.parse_args())
+
