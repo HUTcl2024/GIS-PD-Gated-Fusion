@@ -47,8 +47,8 @@ The four tables below transcribe the author-provided manuscript tables. All metr
 | UHF only | -5 | 91.77 | 96.20 | 97.47 | 96.20 |
 | UHF only | 0 | 94.30 | 77.22 | 97.47 | 96.20 |
 | UHF only | +5 | 96.84 | 95.57 | 97.47 | 96.20 |
-| HFCT only | -5 | 94.30 | 94.94 | 94.30 | 80.38 |
-| HFCT only | 0 | 91.77 | 96.84 | 91.77 | 81.01 |
+| HFCT only | -5 | 94.30 | 94.94 | 96.84 | 80.38 |
+| HFCT only | 0 | 91.77 | 96.84 | 96.84 | 81.01 |
 | HFCT only | +5 | 90.51 | 97.47 | 97.47 | 74.05 |
 | Both channels | -5 | 89.87 | 92.41 | 94.30 | 75.32 |
 | Both channels | 0 | 85.44 | 77.22 | 91.77 | 80.38 |
